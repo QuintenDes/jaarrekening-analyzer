@@ -15,8 +15,8 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 |------|-----------|--------|
 | 1 | Projectstructuur + README | klaar |
 | 2 | Minimale FastAPI-app (`/api/health`) | klaar |
-| 3 | Pydantic schemas | — |
-| 4 | PDF text detector | — |
+| 3 | Pydantic schemas | klaar |
+| 4 | PDF text detector | klaar |
 | 5 | PDF extractor | — |
 | 6 | MAR aggregator | — |
 | 7 | Ratio engine + `ratios.yaml` | — |
@@ -46,7 +46,11 @@ jaarrekening-analyzer/
 └── backend/
     ├── requirements.txt
     └── app/
-        └── main.py       # FastAPI + CORS + GET /api/health
+        ├── main.py       # FastAPI + CORS + GET /api/health
+        ├── models/
+        │   └── schemas.py  # Pydantic-modellen (AnalysisResult, enz.)
+        └── pdf/
+            └── detector.py # tekst vs. gescande PDF
 ```
 
 Frontend komt in latere stappen onder `frontend/`.
