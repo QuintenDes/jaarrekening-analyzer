@@ -18,7 +18,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 3 | Pydantic schemas | klaar |
 | 4 | PDF text detector | klaar |
 | 5 | PDF extractor | klaar |
-| 6 | MAR aggregator | — |
+| 6 | MAR aggregator | klaar |
 | 7 | Ratio engine + `ratios.yaml` | — |
 | 8 | Analyzer pipeline | — |
 | 9 | API routes (`POST /api/analyze`) | — |
@@ -47,6 +47,8 @@ jaarrekening-analyzer/
     ├── requirements.txt
     └── app/
         ├── main.py       # FastAPI + CORS + GET /api/health
+        ├── mar/
+        │   └── aggregator.py  # MAR-code lookup + expressies
         ├── models/
         │   └── schemas.py  # Pydantic-modellen (AnalysisResult, enz.)
         └── pdf/
