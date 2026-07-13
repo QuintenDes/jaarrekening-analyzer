@@ -48,11 +48,11 @@ class StructureItem(BaseModel):
 class AnalysisResult(BaseModel):
     """Volledig antwoord van de analyse-pipeline — dit serialiseert naar JSON."""
 
-    balance_assets: list[StatementLine]
-    balance_liabilities: list[StatementLine]
-    income_statement: list[StatementLine]
-    ratios: list[RatioResult]
-    balance_structure: list[StructureItem]
-    income_structure: list[StructureItem]
-    warnings: list[str] = Field(default_factory=list)  # niet-fatale meldingen
+    balance_assets: list[StatementLine]  # balans activa
+    balance_liabilities: list[StatementLine] # balans passiva
+    income_statement: list[StatementLine] # resultatenrekening
+    ratios: list[RatioResult] # ratio's
+    balance_structure: list[StructureItem] # structurele verdeling van de balans
+    income_structure: list[StructureItem] # structurele verdeling van de resultatenrekening
+    warnings: list[str] = Field(default_factory=list)  # niet-fatale meldingen (bijv. ontbrekende codes)
     validations: list[str] = Field(default_factory=list)  # balanscontroles

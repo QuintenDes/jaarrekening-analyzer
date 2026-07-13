@@ -17,7 +17,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 2 | Minimale FastAPI-app (`/api/health`) | klaar |
 | 3 | Pydantic schemas | klaar |
 | 4 | PDF text detector | klaar |
-| 5 | PDF extractor | — |
+| 5 | PDF extractor | klaar |
 | 6 | MAR aggregator | — |
 | 7 | Ratio engine + `ratios.yaml` | — |
 | 8 | Analyzer pipeline | — |
@@ -50,7 +50,8 @@ jaarrekening-analyzer/
         ├── models/
         │   └── schemas.py  # Pydantic-modellen (AnalysisResult, enz.)
         └── pdf/
-            └── detector.py # tekst vs. gescande PDF
+            ├── detector.py # tekst vs. gescande PDF
+            └── extractor.py  # MAR-codes en bedragen uit PDF
 ```
 
 Frontend komt in latere stappen onder `frontend/`.
