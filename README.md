@@ -19,7 +19,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 4 | PDF text detector | klaar |
 | 5 | PDF extractor | klaar |
 | 6 | MAR aggregator | klaar |
-| 7 | Ratio engine + `ratios.yaml` | — |
+| 7 | Ratio engine + `ratios.yaml` | klaar |
 | 8 | Analyzer pipeline | — |
 | 9 | API routes (`POST /api/analyze`) | — |
 | 10 | Backend tests | — |
@@ -44,6 +44,8 @@ API-docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 jaarrekening-analyzer/
 ├── README.md
 └── backend/
+    ├── config/
+    │   └── ratios.yaml   # 9 financiële ratio's
     ├── requirements.txt
     └── app/
         ├── main.py       # FastAPI + CORS + GET /api/health
@@ -51,9 +53,11 @@ jaarrekening-analyzer/
         │   └── aggregator.py  # MAR-code lookup + expressies
         ├── models/
         │   └── schemas.py  # Pydantic-modellen (AnalysisResult, enz.)
-        └── pdf/
-            ├── detector.py # tekst vs. gescande PDF
-            └── extractor.py  # MAR-codes en bedragen uit PDF
+        ├── pdf/
+        │   ├── detector.py # tekst vs. gescande PDF
+        │   └── extractor.py  # MAR-codes en bedragen uit PDF
+        └── ratios/
+            └── engine.py   # ratio-berekening uit YAML
 ```
 
 Frontend komt in latere stappen onder `frontend/`.
