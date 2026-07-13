@@ -21,7 +21,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 6 | MAR aggregator | klaar |
 | 7 | Ratio engine + `ratios.yaml` | klaar |
 | 8 | Analyzer pipeline | klaar |
-| 9 | API routes (`POST /api/analyze`) | — |
+| 9 | API routes (`POST /api/analyze`) | klaar |
 | 10 | Backend tests | — |
 | 11–16 | Frontend (React + Vite) | — |
 | 17 | End-to-end test | — |
@@ -49,6 +49,8 @@ jaarrekening-analyzer/
     ├── requirements.txt
     └── app/
         ├── main.py       # FastAPI + CORS + GET /api/health
+        ├── api/
+        │   └── routes.py      # /api/health + /api/analyze
         ├── mar/
         │   └── aggregator.py  # MAR-code lookup + expressies
         ├── models/
