@@ -22,7 +22,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 7 | Ratio engine + `ratios.yaml` | klaar |
 | 8 | Analyzer pipeline | klaar |
 | 9 | API routes (`POST /api/analyze`) | klaar |
-| 10 | Backend tests | — |
+| 10 | Backend tests | klaar |
 | 11–16 | Frontend (React + Vite) | — |
 | 17 | End-to-end test | — |
 
@@ -62,6 +62,9 @@ jaarrekening-analyzer/
             └── engine.py   # ratio-berekening uit YAML
         └── services/
             └── analyzer.py # orchestrator: detect → extract → ratios → result
+    └── tests/
+        ├── conftest.py       # maakt `import app...` mogelijk in pytest
+        └── test_extractor.py # golden values + analyzer smoke tests
 ```
 
 Frontend komt in latere stappen onder `frontend/`.

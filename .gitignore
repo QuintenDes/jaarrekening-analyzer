@@ -36,3 +36,6 @@ Thumbs.db
 
 # Local git hooks (niet op GitHub)
 .githooks/
+
+# Tests (worden lokaal gebruikt)
+backend/tests/
