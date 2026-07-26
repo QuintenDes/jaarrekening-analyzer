@@ -1,69 +1,126 @@
 import { useState } from "react";
 import { analyzePdf } from "./api/client";
+import { RatioDashboard } from "./components/RatioDashboard";
 import { StatementTable } from "./components/StatementTable";
 import { UploadZone } from "./components/UploadZone";
-import type { StatementLine } from "./types";
+import type { AnalysisResult } from "./types";
 
-/** Mock data om StatementTable te verifiëren (echte API-data in step 16). */
-const MOCK_LINES: StatementLine[] = [
-  {
-    section: "resultatenrekening",
-    label: "Omzet",
-    footnote: "",
-    code: "70",
-    current: 4_254_284_170,
-    previous: 7_467_200_746,
-  },
-  {
-    section: "resultatenrekening",
-    label: "Handelsgoederen, grond- en hulpstoffen",
-    footnote: "",
-    code: "60",
-    current: -3_000_000_000,
-    previous: -5_000_000_000,
-  },
+type Tab = "balans_activa" | "balans_passiva" | "resultaten" | "ratios";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "balans_activa", label: "Balans activa" },
+  { id: "balans_passiva", label: "Balans passiva" },
+  { id: "resultaten", label: "Resultatenrekening" },
+  { id: "ratios", label: "Ratio's" },
 ];
 
-/** Step 14: StatementTable met mock-regels; upload blijft voor API-smoke-test. */
+/**
+ * Enige orchestrator-component:
+ * - result / loading / error / activeTab state
+ * - sessionStorage cache zodat refresh de laatste analyse behoudt
+ * - na succesvolle upload → tab "ratios" openen
+ */
 function App() {
+  // Init uit sessionStorage (zelfde tab-sessie, geen database)
+  const [result, setResult] = useState<AnalysisResult | null>(() => {
+    const cached = sessionStorage.getItem("analysisResult");
+    return cached ? (JSON.parse(cached) as AnalysisResult) : null;
+  });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("balans_activa");
 
-  async function handleFile(file: File) {
+  async function handleUpload(file: File) {
     setLoading(true);
-    setStatus(null);
+    setError(null);
     try {
-      const result = await analyzePdf(file);
-      console.log("AnalysisResult", result);
-      setStatus(
-        `OK — ${result.ratios.length} ratio's, ${result.balance_assets.length} activa-regels (zie console)`,
-      );
+      const data = await analyzePdf(file);
+      setResult(data);
+      sessionStorage.setItem("analysisResult", JSON.stringify(data));
+      setActiveTab("ratios");
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(message);
-      setStatus(`Fout: ${message}`);
+      setError(err instanceof Error ? err.message : "Onbekende fout");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-6 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-800">
-          Jaarrekening Analyzer
-        </h1>
-        <p className="mt-2 text-slate-600">
-          Step 14: StatementTable met mock-data onderaan.
-        </p>
-      </div>
+    <div className="min-h-screen">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Jaarrekening Analyzer
+          </h1>
+        </div>
+      </header>
 
-      <UploadZone onFile={handleFile} loading={loading} />
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+        <UploadZone onFile={handleUpload} loading={loading} />
 
-      {status && <p className="text-sm text-slate-700">{status}</p>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+            {error}
+          </div>
+        )}
 
-      <StatementTable title="Resultatenrekening (mock)" lines={MOCK_LINES} />
-    </main>
+        {result && (
+          <>
+            {result.warnings.length > 0 && (
+              <div className="space-y-2">
+                {result.warnings.map((warning) => (
+                  <div
+                    key={warning}
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+                  >
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                    activeTab === tab.id
+                      ? "bg-emerald-600 text-white"
+                      : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === "balans_activa" && (
+              <StatementTable
+                title="Balans — Activa"
+                lines={result.balance_assets}
+              />
+            )}
+            {activeTab === "balans_passiva" && (
+              <StatementTable
+                title="Balans — Passiva"
+                lines={result.balance_liabilities}
+              />
+            )}
+            {activeTab === "resultaten" && (
+              <StatementTable
+                title="Resultatenrekening"
+                lines={result.income_statement}
+              />
+            )}
+            {activeTab === "ratios" && (
+              <RatioDashboard ratios={result.ratios} />
+            )}
+          </>
+        )}
+      </main>
+    </div>
   );
 }
 
