@@ -29,7 +29,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 14 | StatementTable | klaar |
 | 15 | RatioDashboard | klaar |
 | 16 | App.tsx wiring | klaar |
-| 17 | End-to-end test | — |
+| 17 | End-to-end test | klaar |
 
 ## Snel starten (backend)
 
