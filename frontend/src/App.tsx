@@ -1,8 +1,30 @@
 import { useState } from "react";
 import { analyzePdf } from "./api/client";
+import { StatementTable } from "./components/StatementTable";
 import { UploadZone } from "./components/UploadZone";
+import type { StatementLine } from "./types";
 
-/** Step 13: UploadZone wired; tables/ratios volgen later. */
+/** Mock data om StatementTable te verifiëren (echte API-data in step 16). */
+const MOCK_LINES: StatementLine[] = [
+  {
+    section: "resultatenrekening",
+    label: "Omzet",
+    footnote: "",
+    code: "70",
+    current: 4_254_284_170,
+    previous: 7_467_200_746,
+  },
+  {
+    section: "resultatenrekening",
+    label: "Handelsgoederen, grond- en hulpstoffen",
+    footnote: "",
+    code: "60",
+    current: -3_000_000_000,
+    previous: -5_000_000_000,
+  },
+];
+
+/** Step 14: StatementTable met mock-regels; upload blijft voor API-smoke-test. */
 function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -26,19 +48,21 @@ function App() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl p-8">
-      <h1 className="text-2xl font-semibold text-slate-800">
-        Jaarrekening Analyzer
-      </h1>
-      <p className="mt-2 text-slate-600">
-        Step 13: UploadZone — kies een PDF om te testen.
-      </p>
-
-      <div className="mt-6">
-        <UploadZone onFile={handleFile} loading={loading} />
+    <main className="mx-auto min-h-screen max-w-4xl space-y-6 p-8">
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-800">
+          Jaarrekening Analyzer
+        </h1>
+        <p className="mt-2 text-slate-600">
+          Step 14: StatementTable met mock-data onderaan.
+        </p>
       </div>
 
-      {status && <p className="mt-4 text-sm text-slate-700">{status}</p>}
+      <UploadZone onFile={handleFile} loading={loading} />
+
+      {status && <p className="text-sm text-slate-700">{status}</p>}
+
+      <StatementTable title="Resultatenrekening (mock)" lines={MOCK_LINES} />
     </main>
   );
 }

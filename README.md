@@ -26,7 +26,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 11 | Frontend scaffold + types | klaar |
 | 12 | API client + Vite proxy | klaar |
 | 13 | UploadZone | klaar |
-| 14 | StatementTable | — |
+| 14 | StatementTable | klaar |
 | 15 | RatioDashboard | — |
 | 16 | App.tsx wiring | — |
 | 17 | End-to-end test | — |
@@ -74,7 +74,8 @@ jaarrekening-analyzer/
         ├── types.ts         # spiegelt backend AnalysisResult
         ├── api/client.ts    # POST /api/analyze via FormData
         ├── components/
-        │   └── UploadZone.tsx
+        │   ├── UploadZone.tsx
+        │   └── StatementTable.tsx
         └── utils/format.ts  # nl-BE bedragen + ratio units
 ```
 
