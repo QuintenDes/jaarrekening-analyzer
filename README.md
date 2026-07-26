@@ -23,7 +23,12 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 8 | Analyzer pipeline | klaar |
 | 9 | API routes (`POST /api/analyze`) | klaar |
 | 10 | Backend tests | klaar |
-| 11–16 | Frontend (React + Vite) | — |
+| 11 | Frontend scaffold + types | klaar |
+| 12 | API client + Vite proxy | — |
+| 13 | UploadZone | — |
+| 14 | StatementTable | — |
+| 15 | RatioDashboard | — |
+| 16 | App.tsx wiring | — |
 | 17 | End-to-end test | — |
 
 ## Snel starten (backend)
@@ -38,36 +43,37 @@ Health check: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/healt
 
 API-docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
+## Snel starten (frontend)
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
 ## Structuur (nu)
 
 ```
 jaarrekening-analyzer/
 ├── README.md
-└── backend/
-    ├── config/
-    │   └── ratios.yaml   # 9 financiële ratio's
-    ├── requirements.txt
-    └── app/
-        ├── main.py       # FastAPI + CORS + GET /api/health
-        ├── api/
-        │   └── routes.py      # /api/health + /api/analyze
-        ├── mar/
-        │   └── aggregator.py  # MAR-code lookup + expressies
-        ├── models/
-        │   └── schemas.py  # Pydantic-modellen (AnalysisResult, enz.)
-        ├── pdf/
-        │   ├── detector.py # tekst vs. gescande PDF
-        │   └── extractor.py  # MAR-codes en bedragen uit PDF
-        └── ratios/
-            └── engine.py   # ratio-berekening uit YAML
-        └── services/
-            └── analyzer.py # orchestrator: detect → extract → ratios → result
-    └── tests/
-        ├── conftest.py       # maakt `import app...` mogelijk in pytest
-        └── test_extractor.py # golden values + analyzer smoke tests
+├── backend/
+│   ├── config/
+│   │   └── ratios.yaml
+│   ├── requirements.txt
+│   └── app/ ...
+└── frontend/
+    ├── package.json
+    ├── vite.config.ts
+    ├── index.html
+    └── src/
+        ├── main.tsx
+        ├── App.tsx          # placeholder tot step 16
+        ├── index.css
+        ├── types.ts         # spiegelt backend AnalysisResult
+        └── utils/format.ts  # nl-BE bedragen + ratio units
 ```
-
-Frontend komt in latere stappen onder `frontend/`.
 
 ## Git & GitHub
 
