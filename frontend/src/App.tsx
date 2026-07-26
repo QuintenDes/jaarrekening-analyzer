@@ -1,15 +1,15 @@
-import { useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { analyzePdf } from "./api/client";
+import { UploadZone } from "./components/UploadZone";
 
-/** Tijdelijke test-UI voor step 12 — echte UploadZone volgt in step 13. */
+/** Step 13: UploadZone wired; tables/ratios volgen later. */
 function App() {
+  const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setStatus("Bezig met analyseren…");
+  async function handleFile(file: File) {
+    setLoading(true);
+    setStatus(null);
     try {
       const result = await analyzePdf(file);
       console.log("AnalysisResult", result);
@@ -21,26 +21,22 @@ function App() {
       console.error(message);
       setStatus(`Fout: ${message}`);
     } finally {
-      // Zelfde bestand opnieuw kunnen kiezen
-      event.target.value = "";
+      setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="mx-auto min-h-screen max-w-3xl p-8">
       <h1 className="text-2xl font-semibold text-slate-800">
         Jaarrekening Analyzer
       </h1>
       <p className="mt-2 text-slate-600">
-        Step 12: API-client + proxy — kies een PDF om te testen.
+        Step 13: UploadZone — kies een PDF om te testen.
       </p>
 
-      <input
-        type="file"
-        accept="application/pdf,.pdf"
-        className="mt-6 block"
-        onChange={handleFileChange}
-      />
+      <div className="mt-6">
+        <UploadZone onFile={handleFile} loading={loading} />
+      </div>
 
       {status && <p className="mt-4 text-sm text-slate-700">{status}</p>}
     </main>

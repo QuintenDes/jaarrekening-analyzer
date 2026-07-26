@@ -25,7 +25,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 10 | Backend tests | klaar |
 | 11 | Frontend scaffold + types | klaar |
 | 12 | API client + Vite proxy | klaar |
-| 13 | UploadZone | — |
+| 13 | UploadZone | klaar |
 | 14 | StatementTable | — |
 | 15 | RatioDashboard | — |
 | 16 | App.tsx wiring | — |
@@ -69,10 +69,12 @@ jaarrekening-analyzer/
     ├── index.html
     └── src/
         ├── main.tsx
-        ├── App.tsx          # tijdelijke PDF-testknop (step 12)
+        ├── App.tsx          # UploadZone + tijdelijke status (tot step 16)
         ├── index.css
         ├── types.ts         # spiegelt backend AnalysisResult
         ├── api/client.ts    # POST /api/analyze via FormData
+        ├── components/
+        │   └── UploadZone.tsx
         └── utils/format.ts  # nl-BE bedragen + ratio units
 ```
 
