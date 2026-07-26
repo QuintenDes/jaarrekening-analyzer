@@ -28,7 +28,7 @@ Het resultaat toon je in een overzichtelijke interface: de geëxtraheerde balans
 | 13 | UploadZone | klaar |
 | 14 | StatementTable | klaar |
 | 15 | RatioDashboard | klaar |
-| 16 | App.tsx wiring | — |
+| 16 | App.tsx wiring | klaar |
 | 17 | End-to-end test | — |
 
 ## Snel starten (backend)
@@ -69,7 +69,7 @@ jaarrekening-analyzer/
     ├── index.html
     └── src/
         ├── main.tsx
-        ├── App.tsx          # UploadZone + tijdelijke status (tot step 16)
+        ├── App.tsx          # orchestrator: upload → tabs → sessionStorage
         ├── index.css
         ├── types.ts         # spiegelt backend AnalysisResult
         ├── api/client.ts    # POST /api/analyze via FormData
