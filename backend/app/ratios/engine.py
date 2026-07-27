@@ -20,6 +20,10 @@ from app.models.schemas import RatioResult, StatementLine, StructureItem
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 
+ALLOWED_SPEC_KEYS = frozenset(
+    {"id", "name", "category", "numerator", "denominator", "multiply", "unit"}
+)
+
 
 def load_ratios_config() -> list[dict]:
     path = CONFIG_DIR / "ratios.yaml"
@@ -28,15 +32,96 @@ def load_ratios_config() -> list[dict]:
     return data.get("ratios", [])
 
 
-def compute_ratios(aggregator: CodeAggregator) -> list[RatioResult]:
+def parse_ratios_yaml(text: str) -> list[dict]:
+    """Parse a ratios.yaml body into validated specs."""
+    data = yaml.safe_load(text)
+    if data is None:
+        raise ValueError("Lege YAML.")
+    if not isinstance(data, dict) or "ratios" not in data:
+        raise ValueError("YAML moet een top-level 'ratios' lijst bevatten.")
+    return validate_ratios_config(data["ratios"])
+
+
+def validate_ratios_config(raw: object) -> list[dict]:
+    """Valideer ratio-specs (van YAML of sandbox JSON). Gooit ValueError bij fouten."""
+    if not isinstance(raw, list):
+        raise ValueError("ratios moet een lijst zijn.")
+    if len(raw) == 0:
+        raise ValueError("ratios mag niet leeg zijn.")
+
+    validated: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for index, item in enumerate(raw):
+        prefix = f"ratios[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{prefix} moet een object zijn.")
+
+        unknown = set(item.keys()) - ALLOWED_SPEC_KEYS
+        if unknown:
+            raise ValueError(
+                f"{prefix}: onbekende velden: {', '.join(sorted(unknown))}"
+            )
+
+        for required in ("id", "name", "numerator"):
+            value = item.get(required)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{prefix}.{required} is verplicht (niet-lege string).")
+
+        spec_id = item["id"].strip()
+        if spec_id in seen_ids:
+            raise ValueError(f"Dubbele ratio-id: {spec_id}")
+        seen_ids.add(spec_id)
+
+        category = item.get("category", "overig")
+        if not isinstance(category, str) or not category.strip():
+            raise ValueError(f"{prefix}.category moet een niet-lege string zijn.")
+
+        unit = item.get("unit", "")
+        if unit is None:
+            unit = ""
+        if not isinstance(unit, str):
+            raise ValueError(f"{prefix}.unit moet een string zijn.")
+
+        denominator = item.get("denominator")
+        if denominator is not None and (
+            not isinstance(denominator, str) or not denominator.strip()
+        ):
+            raise ValueError(
+                f"{prefix}.denominator moet een niet-lege string zijn of weggelaten."
+            )
+
+        multiply = item.get("multiply", 1)
+        if isinstance(multiply, bool) or not isinstance(multiply, (int, float)):
+            raise ValueError(f"{prefix}.multiply moet een getal zijn.")
+
+        cleaned: dict = {
+            "id": spec_id,
+            "name": item["name"].strip(),
+            "category": category.strip(),
+            "numerator": item["numerator"].strip(),
+            "unit": unit,
+            "multiply": multiply,
+        }
+        if denominator is not None:
+            cleaned["denominator"] = denominator.strip()
+
+        validated.append(cleaned)
+
+    return validated
+
+
+def compute_ratios(
+    aggregator: CodeAggregator,
+    specs: list[dict] | None = None,
+) -> list[RatioResult]:
     results: list[RatioResult] = []
-    for spec in load_ratios_config():
+    for spec in specs if specs is not None else load_ratios_config():
         formula_parts: list[str] = []
         missing: list[str] = []
 
-        # numerator_expr heeft voorrang op numerator (zelfde voor denominator)
-        num_expr = spec.get("numerator_expr") or spec.get("numerator")
-        den_expr = spec.get("denominator_expr") or spec.get("denominator")
+        num_expr = spec.get("numerator")
+        den_expr = spec.get("denominator")
 
         if not num_expr:
             continue
@@ -46,9 +131,9 @@ def compute_ratios(aggregator: CodeAggregator) -> list[RatioResult]:
         formula_parts.append(num_expr)
 
         value: float | None = None
-        if denominator := den_expr:
-            formula_parts.append(f"/ {denominator}")
-            denominator_val, den_missing = aggregator.evaluate_expr(denominator, "current")
+        if den_expr:
+            formula_parts.append(f"/ {den_expr}")
+            denominator_val, den_missing = aggregator.evaluate_expr(den_expr, "current")
             missing.extend(den_missing)
             if numerator is not None and denominator_val is not None and denominator_val != 0:
                 value = numerator / denominator_val

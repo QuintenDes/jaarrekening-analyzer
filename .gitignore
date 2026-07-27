@@ -39,3 +39,11 @@ Thumbs.db
 
 # Tests (worden lokaal gebruikt)
 backend/tests/
+
+# Docker / local server deploy (niet op GitHub)
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+Caddyfile
+.dockerignore
+DEPLOY.md

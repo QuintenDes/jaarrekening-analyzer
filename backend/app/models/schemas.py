@@ -20,6 +20,24 @@ class StatementLine(BaseModel):
     previous: int | None = None  # bedrag vorig boekjaar in EUR
 
 
+class RatioSpec(BaseModel):
+    """Config-entry voor één ratio (spiegel van ratios.yaml / sandbox)."""
+
+    id: str
+    name: str
+    category: str = "overig"
+    numerator: str
+    denominator: str | None = None
+    multiply: float = 1
+    unit: str = ""
+
+
+class RatiosConfigResponse(BaseModel):
+    """Antwoord van GET /api/ratios — defaults van de server."""
+
+    ratios: list[RatioSpec]
+
+
 class RatioResult(BaseModel):
     """Eén berekende financiële ratio uit ratios.yaml."""
 
@@ -45,14 +63,40 @@ class StructureItem(BaseModel):
     pct_previous: float | None  # aandeel vorig jaar (0–100)
 
 
+class ScanHighlight(BaseModel):
+    """Bounding box van een geëxtraheerde regel (pdfplumber-coördinaten, top-left)."""
+
+    page: int  # 0-based
+    x0: float
+    top: float
+    x1: float
+    bottom: float
+    section: str
+    code: str
+
+
+class PageSize(BaseModel):
+    """PDF-pagina-afmetingen in punten (zelfde ruimte als ScanHighlight)."""
+
+    width: float
+    height: float
+
+
 class AnalysisResult(BaseModel):
     """Volledig antwoord van de analyse-pipeline — dit serialiseert naar JSON."""
 
+    schema_format: str | None = None  # bijv. VOL-kap, MIC-inb
     balance_assets: list[StatementLine]  # balans activa
-    balance_liabilities: list[StatementLine] # balans passiva
-    income_statement: list[StatementLine] # resultatenrekening
-    ratios: list[RatioResult] # ratio's
-    balance_structure: list[StructureItem] # structurele verdeling van de balans
-    income_structure: list[StructureItem] # structurele verdeling van de resultatenrekening
+    balance_liabilities: list[StatementLine]  # balans passiva
+    income_statement: list[StatementLine]  # resultatenrekening
+    appropriation_of_result: list[StatementLine] = Field(
+        default_factory=list
+    )  # resultaatverwerking
+    ratios: list[RatioResult]  # ratio's
+    balance_structure: list[StructureItem]  # structurele verdeling van de balans
+    income_structure: list[StructureItem]  # structurele verdeling van de resultatenrekening
     warnings: list[str] = Field(default_factory=list)  # niet-fatale meldingen (bijv. ontbrekende codes)
     validations: list[str] = Field(default_factory=list)  # balanscontroles
+    highlights: list[ScanHighlight] = Field(default_factory=list)
+    page_count: int | None = None
+    page_sizes: list[PageSize] = Field(default_factory=list)

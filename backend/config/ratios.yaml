@@ -1,7 +1,6 @@
 ratios:
   # --- Liquiditeit ---
-  # numerator / denominator: enkelvoudige MAR-code
-  # numerator_expr / denominator_expr: expressie met + of - (zie aggregator)
+  # numerator / denominator: MAR-code of expressie met + of - (zie aggregator)
   # multiply: schaalfactor (100 voor percentages)
   # unit: weergave in UI (x, %, EUR, days)
 
@@ -15,14 +14,14 @@ ratios:
   - id: quick_ratio
     name: Quick ratio (acid test)
     category: liquiditeit
-    numerator_expr: "29/58 - 3"  # vlottende activa minus voorraden
+    numerator: "29/58 - 3"  # vlottende activa minus voorraden
     denominator: "42/48"
     unit: x
 
   - id: net_working_capital
     name: Netto bedrijfskapitaal
     category: liquiditeit
-    numerator_expr: "29/58 - 42/48"
+    numerator: "29/58 - 42/48"
     unit: EUR
 
   # --- Solvabiliteit ---
@@ -31,24 +30,24 @@ ratios:
     category: solvabiliteit
     numerator: "10/15"      # eigen vermogen
     denominator: "10/49"    # totaal passiva
-    unit: "%"
     multiply: 100
+    unit: "%"
 
   - id: financial_independence
     name: Graad financiële onafhankelijkheid
     category: solvabiliteit
     numerator: "10/15"
-    denominator_expr: "10/15 + 17"  # EV + langlopende schulden
-    unit: "%"
+    denominator: "10/15 + 17"  # EV + langlopende schulden
     multiply: 100
+    unit: "%"
 
   - id: debt_ratio
     name: Schuldratio
     category: solvabiliteit
-    numerator_expr: "10/49 - 10/15"  # vreemd vermogen
+    numerator: "10/49 - 10/15"  # vreemd vermogen
     denominator: "10/49"
-    unit: "%"
     multiply: 100
+    unit: "%"
 
   # --- Rentabiliteit ---
   - id: rev
@@ -56,21 +55,21 @@ ratios:
     category: rentabiliteit
     numerator: "9904"       # nettoresultaat
     denominator: "10/15"
-    unit: "%"
     multiply: 100
+    unit: "%"
 
   - id: rtv
     name: Rentabiliteit totaal vermogen (RTV)
     category: rentabiliteit
-    numerator_expr: "9904 + 65 + 67/77"
+    numerator: "9904 + 65 + 67/77"
     denominator: "20/58"    # totaal activa
-    unit: "%"
     multiply: 100
+    unit: "%"
 
   - id: gross_margin
     name: Bruto winstmarge (bedrijfswinst / opbrengsten)
     category: rentabiliteit
     numerator: "9901"
     denominator: "70/76A"
-    unit: "%"
     multiply: 100
+    unit: "%"

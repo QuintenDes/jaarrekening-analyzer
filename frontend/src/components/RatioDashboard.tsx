@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from "react";
 import type { RatioResult } from "../types";
 import { formatRatio } from "../utils/format";
 
@@ -5,20 +6,103 @@ interface RatioDashboardProps {
   ratios: RatioResult[];
 }
 
-/** Groepeer ratio's per category uit ratios.yaml (liquiditeit / solvabiliteit / …). */
-const CATEGORY_LABELS: Record<string, string> = {
-  liquiditeit: "Liquiditeit",
-  solvabiliteit: "Solvabiliteit",
-  rentabiliteit: "Rentabiliteit",
-  overig: "Overig",
-};
+function titleCase(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+/** Split op gedeelde ' / ' zodat MAR-codes (29/58) niet verward worden met deling. */
+function FormulaDisplay({ formula }: { formula: string }) {
+  const parts = formula.split(" / ");
+  if (parts.length === 2) {
+    return (
+      <div className="inline-flex flex-col items-center font-mono text-xs text-slate-600">
+        <span>{parts[0]}</span>
+        <span className="my-0.5 w-full border-t border-slate-300" />
+        <span>{parts[1]}</span>
+      </div>
+    );
+  }
+  return <p className="font-mono text-xs text-slate-600">{formula}</p>;
+}
+
+interface RatioCardProps {
+  ratio: RatioResult;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}
+
+function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  return (
+    <div
+      ref={cardRef}
+      className="relative rounded-lg border border-slate-100 bg-slate-50 p-4"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm text-slate-500">{ratio.name}</p>
+        <button
+          type="button"
+          aria-label="Formule"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={onToggle}
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-slate-400 ring-1 ring-slate-300 hover:bg-white hover:text-slate-600"
+        >
+          i
+        </button>
+      </div>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">
+        {formatRatio(ratio.value, ratio.unit)}
+      </p>
+      {open && (
+        <div
+          id={panelId}
+          role="tooltip"
+          className="absolute right-3 top-10 z-10 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm"
+        >
+          <FormulaDisplay formula={ratio.formula} />
+        </div>
+      )}
+      {ratio.missing_codes.length > 0 && (
+        <p className="mt-2 text-xs text-amber-700">
+          Ontbrekend: {ratio.missing_codes.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * Presentational dashboard: groepeert RatioResult[] per category,
- * toont waarde (formatRatio), formule en ontbrekende MAR-codes.
+ * toont waarde (formatRatio), formule via info-knop en ontbrekende MAR-codes.
  */
 export function RatioDashboard({ ratios }: RatioDashboardProps) {
   const categories = [...new Set(ratios.map((ratio) => ratio.category))];
+  const [openFormulaId, setOpenFormulaId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -29,30 +113,24 @@ export function RatioDashboard({ ratios }: RatioDashboardProps) {
         >
           <div className="border-b border-slate-200 bg-slate-100 px-4 py-3">
             <h3 className="font-semibold text-slate-800">
-              {CATEGORY_LABELS[category] ?? category}
+              {titleCase(category)}
             </h3>
           </div>
           <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {ratios
               .filter((ratio) => ratio.category === category)
               .map((ratio) => (
-                <div
+                <RatioCard
                   key={ratio.id}
-                  className="rounded-lg border border-slate-100 bg-slate-50 p-4"
-                >
-                  <p className="text-sm text-slate-500">{ratio.name}</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">
-                    {formatRatio(ratio.value, ratio.unit)}
-                  </p>
-                  <p className="mt-2 font-mono text-xs text-slate-400">
-                    {ratio.formula}
-                  </p>
-                  {ratio.missing_codes.length > 0 && (
-                    <p className="mt-2 text-xs text-amber-700">
-                      Ontbrekend: {ratio.missing_codes.join(", ")}
-                    </p>
-                  )}
-                </div>
+                  ratio={ratio}
+                  open={openFormulaId === ratio.id}
+                  onToggle={() =>
+                    setOpenFormulaId((current) =>
+                      current === ratio.id ? null : ratio.id,
+                    )
+                  }
+                  onClose={() => setOpenFormulaId(null)}
+                />
               ))}
           </div>
         </div>
