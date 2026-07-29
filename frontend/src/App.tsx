@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { analyzePdf } from "./api/client";
 import { PdfHighlightViewer } from "./components/PdfHighlightViewer";
 import { RatioDashboard } from "./components/RatioDashboard";
@@ -32,6 +32,19 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "pdf_scan", label: "PDF scan" },
 ];
 
+const ANALYSIS_CACHE_KEY = "analysisResult";
+
+function loadCachedAnalysis(): AnalysisResult | null {
+  const cached = sessionStorage.getItem(ANALYSIS_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    return JSON.parse(cached) as AnalysisResult;
+  } catch {
+    sessionStorage.removeItem(ANALYSIS_CACHE_KEY);
+    return null;
+  }
+}
+
 /**
  * Enige orchestrator-component:
  * - result / loading / error / activeTab state
@@ -40,20 +53,18 @@ const TABS: { id: Tab; label: string }[] = [
  * - ratio sandbox: draft + enabled in sessionStorage, nooit server-write
  */
 function App() {
-  const [result, setResult] = useState<AnalysisResult | null>(() => {
-    const cached = sessionStorage.getItem("analysisResult");
-    return cached ? (JSON.parse(cached) as AnalysisResult) : null;
-  });
+  const [result, setResult] = useState<AnalysisResult | null>(loadCachedAnalysis);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>(() =>
-    result ? "ratios" : "sandbox",
+  const [activeTab, setActiveTab] = useState<Tab | null>(() =>
+    result ? "ratios" : null,
   );
   const [sandboxEnabled, setSandboxEnabled] = useState(loadSandboxEnabled);
   const [sandboxDraft, setSandboxDraft] = useState<RatioSpec[]>(
     () => loadSandboxDraft() ?? [],
   );
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -71,6 +82,14 @@ function App() {
     }
   }, [sandboxDraft]);
 
+  function focusUploadZone() {
+    uploadSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    document.getElementById("upload-zone")?.focus();
+  }
+
   async function handleUpload(file: File) {
     setLoading(true);
     setError(null);
@@ -79,7 +98,7 @@ function App() {
         sandboxEnabled && sandboxDraft.length > 0 ? sandboxDraft : undefined;
       const data = await analyzePdf(file, override);
       setResult(data);
-      sessionStorage.setItem("analysisResult", JSON.stringify(data));
+      sessionStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(data));
 
       setPdfUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
@@ -109,7 +128,9 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <UploadZone onFile={handleUpload} loading={loading} />
+        <div ref={uploadSectionRef}>
+          <UploadZone onFile={handleUpload} loading={loading} />
+        </div>
 
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
@@ -122,7 +143,13 @@ function App() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (tab.id === "sandbox" && activeTab === "sandbox") {
+                  setActiveTab(result ? "ratios" : null);
+                  return;
+                }
+                setActiveTab(tab.id);
+              }}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                 activeTab === tab.id
                   ? "bg-emerald-600 text-white"
@@ -173,8 +200,17 @@ function App() {
                 />
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  Upload de PDF opnieuw om de gemarkeerde scan te zien. De
-                  analyse blijft bewaard, maar het PDF-bestand zelf niet.
+                  <p>
+                    De analyse blijft bewaard na een refresh, maar het PDF-bestand
+                    zelf niet (privacy / geheugen).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={focusUploadZone}
+                    className="mt-3 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                  >
+                    Kies opnieuw dezelfde PDF hierboven
+                  </button>
                 </div>
               ))}
 
@@ -203,7 +239,28 @@ function App() {
               />
             )}
             {activeTab === "ratios" && (
-              <RatioDashboard ratios={result.ratios} />
+              <div className="space-y-6">
+                {(result.validations ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    {result.validations.map((message) => {
+                      const warning = message.includes("WAARSCHUWING");
+                      return (
+                        <div
+                          key={message}
+                          className={`rounded-lg border px-4 py-2 text-sm ${
+                            warning
+                              ? "border-amber-200 bg-amber-50 text-amber-900"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                          }`}
+                        >
+                          {message}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <RatioDashboard ratios={result.ratios} />
+              </div>
             )}
           </>
         )}

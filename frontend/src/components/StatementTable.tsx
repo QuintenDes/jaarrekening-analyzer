@@ -24,14 +24,18 @@ export function StatementTable({ title, lines }: StatementTableProps) {
         <p className="text-sm text-slate-500">{lines.length} regels</p>
       </div>
       <div className="max-h-[70vh] overflow-auto">
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-full table-fixed text-left text-sm">
           <thead className="sticky top-0 bg-white text-slate-500">
             <tr>
-              <th className="px-4 py-2 font-medium">Code</th>
-              <th className="px-4 py-2 font-medium">Omschrijving</th>
-              <th className="px-4 py-2 font-medium">Toel.</th>
-              <th className="px-4 py-2 text-right font-medium">Boekjaar</th>
-              <th className="px-4 py-2 text-right font-medium">Vorig boekjaar</th>
+              <th className="w-20 px-4 py-2 align-top font-medium">Code</th>
+              <th className="px-4 py-2 align-top font-medium">Omschrijving</th>
+              <th className="w-16 px-4 py-2 align-top font-medium">Toel.</th>
+              <th className="w-28 px-4 py-2 align-top text-right font-medium">
+                Boekjaar
+              </th>
+              <th className="w-32 px-4 py-2 align-top text-right font-medium">
+                Vorig boekjaar
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +57,7 @@ export function StatementTable({ title, lines }: StatementTableProps) {
                   }`}
                 >
                   <td
-                    className={`px-4 py-2 font-mono ${
+                    className={`px-4 py-2 align-top font-mono ${
                       emphasize
                         ? "font-semibold text-emerald-800"
                         : "text-emerald-600/80"
@@ -62,19 +66,19 @@ export function StatementTable({ title, lines }: StatementTableProps) {
                     {line.code}
                   </td>
                   <td
-                    className={`py-2 pr-4 text-slate-800 ${indentClass} ${
+                    className={`py-2 pr-4 align-top text-slate-800 ${indentClass} ${
                       emphasize ? "font-semibold" : ""
                     }`}
                   >
                     {line.label || "—"}
                   </td>
-                  <td className="px-4 py-2 text-slate-500">
+                  <td className="px-4 py-2 align-top text-slate-500">
                     {line.footnote || "—"}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
+                  <td className="px-4 py-2 align-top text-right font-mono">
                     {formatAmount(line.current)}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
+                  <td className="px-4 py-2 align-top text-right font-mono">
                     {formatAmount(line.previous)}
                   </td>
                 </tr>

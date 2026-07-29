@@ -130,6 +130,97 @@ class TextLine:
 # Cluster lines whose tops are within this delta into one visual statement row.
 CLUSTER_MAX_TOP_DELTA = 11.0
 
+# Alleen een MAR-code op de regel (zoals losse "19" naast een wrap-label)
+CODE_ONLY_LINE = re.compile(rf"^({MAR_CODE})$")
+
+
+def _is_code_only_fragment(text: str) -> bool:
+    return CODE_ONLY_LINE.match(text.strip()) is not None
+
+
+def _strip_trailing_amounts(text: str) -> str:
+    """Peel up to two trailing amounts (dotted or plain) so CODE_AT_END can match."""
+    rest = text
+    for _ in range(2):
+        match = AMOUNT_AT_END.search(rest)
+        if not match:
+            break
+        rest = rest[: match.start()].rstrip()
+    if AMOUNT_AT_END.search(rest) is None:
+        plain = re.search(r"(-?\d+)$", rest)
+        if plain:
+            trial = rest[: plain.start()].rstrip()
+            if CODE_AT_END.search(trial):
+                rest = trial
+    return rest
+
+
+def _mar_codes_in_text(text: str) -> set[str]:
+    """MAR codes identifiable in one pdfplumber fragment."""
+    stripped = text.strip()
+    if not stripped:
+        return set()
+
+    if _is_code_only_fragment(stripped):
+        match = CODE_ONLY_LINE.match(stripped)
+        return {match.group(1)} if match else set()
+
+    paren = PAREN_CODE_SUFFIX.search(stripped)
+    if paren:
+        return {paren.group(1)}
+
+    code_first = CODE_FIRST_LINE.match(stripped)
+    if code_first:
+        return {code_first.group(2)}
+
+    rest = _strip_trailing_amounts(stripped)
+    code_match = CODE_AT_END.search(rest)
+    if code_match:
+        return {code_match.group(1)}
+    return set()
+
+
+def _cluster_mar_codes(cluster: list[TextLine]) -> set[str]:
+    codes: set[str] = set()
+    for part in cluster:
+        codes |= _mar_codes_in_text(part.text)
+    return codes
+
+
+def _is_new_label_start(text: str) -> bool:
+    """True if fragment looks like the start of a new statement omschrijving."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if _is_code_only_fragment(stripped) or _is_code_column_fragment(stripped):
+        return False
+    if CONTINUATION_ONLY.match(stripped):
+        return False
+    # Wrap tails: lowercase, or mid-paren like "terugnemingen)" / "(bestedingen…"
+    first = stripped[0]
+    if first.islower() or first == "(":
+        return False
+    return first.isupper()
+
+
+def _would_merge_distinct_rows(cluster: list[TextLine], candidate: TextLine) -> bool:
+    """True when appending candidate would glue two statement rows together.
+
+    Dense MIC layouts put consecutive rows within CLUSTER_MAX_TOP_DELTA; refuse
+    the merge when the cluster already has a MAR code and the candidate brings a
+    different code or a capitalized new label.
+    """
+    existing = _cluster_mar_codes(cluster)
+    if not existing:
+        return False
+
+    candidate_codes = _mar_codes_in_text(candidate.text)
+    if candidate_codes and candidate_codes.isdisjoint(existing):
+        return True
+    if candidate_codes:
+        return False
+    return _is_new_label_start(candidate.text)
+
 
 def cluster_text_lines(
     lines: list[TextLine],
@@ -143,7 +234,7 @@ def cluster_text_lines(
     clusters: list[list[TextLine]] = [[lines[0]]]
     for line in lines[1:]:
         prev = clusters[-1][-1]
-        can_cluster = (
+        close_enough = (
             line.page is not None
             and prev.page is not None
             and line.page == prev.page
@@ -151,19 +242,11 @@ def cluster_text_lines(
             and prev.top is not None
             and (line.top - prev.top) <= max_top_delta
         )
-        if can_cluster:
+        if close_enough and not _would_merge_distinct_rows(clusters[-1], line):
             clusters[-1].append(line)
         else:
             clusters.append([line])
     return clusters
-
-
-# Alleen een MAR-code op de regel (zoals losse "19" naast een wrap-label)
-CODE_ONLY_LINE = re.compile(rf"^({MAR_CODE})$")
-
-
-def _is_code_only_fragment(text: str) -> bool:
-    return CODE_ONLY_LINE.match(text.strip()) is not None
 
 
 def _is_code_column_fragment(text: str) -> bool:
@@ -201,11 +284,17 @@ def _is_code_column_fragment(text: str) -> bool:
     if amount_count > 0:
         return True
 
-    # Zonder bedragen: alleen zuivere codekolom zoals "(+)/(-) 635/8"
-    before = SIGN_PREFIX.sub("", rest[: code_match.start()].rstrip()).strip()
-    if not before:
+    # Zonder bedragen: zuivere codekolom "(+)/(-) 635/8" / "6.10 631/4", of
+    # wrap-regel die eindigt op teken + code ("…toevoegingen (+)/(-) 631/4").
+    # Die laatste moet als codekolom sorteren zodat "(terugnemingen)"-wraps vóór
+    # de code belanden en parse_line de MAR-code nog vindt.
+    before = rest[: code_match.start()].rstrip()
+    if re.search(r"(?:\(\+\)/\(-\)|\(-\)|\(\+\))\s*$", before):
         return True
-    return TOEL_AT_END.fullmatch(before) is not None
+    after_sign = SIGN_PREFIX.sub("", before).strip()
+    if not after_sign:
+        return True
+    return TOEL_AT_END.fullmatch(after_sign) is not None
 
 
 def merge_cluster(cluster: list[TextLine]) -> TextLine:

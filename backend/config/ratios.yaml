@@ -70,6 +70,6 @@ ratios:
     name: Bruto winstmarge (bedrijfswinst / opbrengsten)
     category: rentabiliteit
     numerator: "9901"
-    denominator: "70/76A"
+    denominator: "70/76A"  # VOL; MIC alias → 70 (zie CODE_ALIASES)
     multiply: 100
     unit: "%"

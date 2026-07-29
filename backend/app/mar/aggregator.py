@@ -14,6 +14,12 @@ from app.models.schemas import StatementLine
 
 YearKey = Literal["current", "previous"]
 
+# VOL-schemas gebruiken vaak gecombineerde codes; MIC heeft soms alleen het eerste deel.
+# Voorbeeld: bedrijfsopbrengsten "70/76A" (VOL) ↔ "70" Omzet (MIC verkort).
+CODE_ALIASES: dict[str, tuple[str, ...]] = {
+    "70/76A": ("70",),
+}
+
 
 class CodeAggregator:
     """Lookup MAR-code bedragen uit geëxtraheerde jaarrekeningregels."""
@@ -28,9 +34,14 @@ class CodeAggregator:
                 self._previous[line.code] = line.previous
 
     def get(self, code: str, year: YearKey = "current") -> int | None:
-        """Enkelvoudige lookup: geef het bedrag voor één MAR-code."""
+        """Enkelvoudige lookup: geef het bedrag voor één MAR-code (met aliases)."""
         store = self._current if year == "current" else self._previous
-        return store.get(code)
+        if code in store:
+            return store[code]
+        for alias in CODE_ALIASES.get(code, ()):
+            if alias in store:
+                return store[alias]
+        return None
 
     def evaluate_expr(self, expr: str, year: YearKey = "current") -> tuple[int | None, list[str]]:
         """Evalueer een expressie uit ratios.yaml, bijv. '29/58 - 3' of '9904 + 65'.
