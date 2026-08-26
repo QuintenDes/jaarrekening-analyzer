@@ -112,12 +112,12 @@ function App() {
     <div
       className={
         activeTab === "pdf_scan" && showResults
-          ? "flex h-screen flex-col overflow-hidden"
+          ? "flex h-screen w-full flex-col overflow-hidden"
           : "min-h-screen"
       }
     >
       <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 py-6">
           <h1 className="text-2xl font-bold text-slate-900">
             Jaarrekening Analyzer
           </h1>
@@ -136,7 +136,7 @@ function App() {
       </header>
 
       <main
-        className={`mx-auto max-w-6xl px-4 py-8 ${
+        className={`mx-auto w-full min-w-0 max-w-6xl px-4 py-8 ${
           activeTab === "pdf_scan" && showResults
             ? "flex min-h-0 flex-1 flex-col gap-6 overflow-hidden"
             : "space-y-6"
@@ -227,7 +227,7 @@ function App() {
           <div
             className={
               activeTab === "pdf_scan"
-                ? "flex min-h-0 flex-1 flex-col gap-6 overflow-hidden"
+                ? "flex min-h-0 w-full min-w-0 flex-1 flex-col gap-6 overflow-hidden"
                 : "contents"
             }
           >
@@ -244,7 +244,7 @@ function App() {
 
             {activeTab === "pdf_scan" &&
               (session.pdfUrl ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
                 <PdfWorkspace
                   pdfUrl={session.pdfUrl}
                   result={session.result}

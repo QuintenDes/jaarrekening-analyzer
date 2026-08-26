@@ -84,6 +84,24 @@ export function cloneKeyIds(
   return next;
 }
 
+const CATEGORY_NAME_HINTS: readonly [RegExp, RatioCategoryId][] = [
+  [/liquid|current.?ratio|quick|acid|werkkapitaal|working.?capital/i, "liquiditeit"],
+  [/solvab|schuld|onafhank|leverage|gearing|debt.?ratio|financial.?indep/i, "solvabiliteit"],
+  [/rentab|marge|margin|\brev\b|\brtv\b|\broe\b|\broa\b|winstgevend/i, "rentabiliteit"],
+];
+
+/**
+ * Best-effort category from the ratio name. Existing ratios keep their stored
+ * category; this is only used when creating a new ratio.
+ */
+export function inferRatioCategory(name: string, fallback: string): string {
+  const trimmed = name.trim();
+  for (const [pattern, category] of CATEGORY_NAME_HINTS) {
+    if (pattern.test(trimmed)) return category;
+  }
+  return categoryKey(fallback);
+}
+
 /**
  * Dashboard selection: designated key metrics for a category, then fill
  * from remaining items in existing category order up to `limit`.

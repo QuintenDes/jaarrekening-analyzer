@@ -4,6 +4,12 @@ import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PageSize, ScanHighlight, SourceSelection } from "../types";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MinusIcon,
+  PlusIcon,
+} from "./icons";
 
 function isRenderCancelled(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -46,8 +52,6 @@ type Props = {
   pageCount: number | null;
   selection: SourceSelection | null;
   onSelectHighlight: (highlight: ScanHighlight, occurrenceIndex: number) => void;
-  onBack?: () => void;
-  backLabel?: string;
 };
 
 function occurrenceIndexOf(
@@ -80,20 +84,6 @@ function overlayStyleFor(
   };
 }
 
-function backChipStyle(h: ScanHighlight, pageSize: PageSize): CSSProperties {
-  if (pageSize.width <= 0 || pageSize.height <= 0) {
-    return { display: "none" };
-  }
-  const leftPct = (h.x0 / pageSize.width) * 100;
-  const topPct = (h.top / pageSize.height) * 100;
-  const heightPct = (Math.max(h.bottom - h.top, 1) / pageSize.height) * 100;
-  return {
-    left: `${leftPct}%`,
-    top: `${topPct + heightPct / 2}%`,
-    transform: "translate(8px, -50%)",
-  };
-}
-
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -101,8 +91,6 @@ export function PdfHighlightViewer({
   pageCount,
   selection,
   onSelectHighlight,
-  onBack,
-  backLabel = "Terug",
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -131,20 +119,6 @@ export function PdfHighlightViewer({
     () => highlights.filter((h) => h.page === pageIndex),
     [highlights, pageIndex],
   );
-
-  const selectedHighlight = useMemo(() => {
-    if (!selection) return null;
-    return (
-      pageHighlights.find((h) => {
-        const occ = occurrenceIndexOf(highlights, h);
-        return (
-          selection.section === h.section &&
-          selection.code === h.code &&
-          selection.occurrenceIndex === occ
-        );
-      }) ?? null
-    );
-  }, [selection, pageHighlights, highlights]);
 
   const totalPages = pageCount ?? pdf?.numPages ?? 0;
 
@@ -343,93 +317,98 @@ export function PdfHighlightViewer({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-            disabled={pageIndex <= 0}
-            onClick={() => goToPage(pageIndex - 1)}
-          >
-            Vorige
-          </button>
-          <label className="flex shrink-0 items-center gap-1 text-sm text-slate-600">
-            Pagina
-            <input
-              type="number"
-              min={1}
-              max={totalPages || undefined}
-              value={pageInput}
-              onChange={(event) => setPageInput(event.target.value)}
-              onBlur={() => goToPage(Number(pageInput) - 1)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") goToPage(Number(pageInput) - 1);
-              }}
-              className="w-16 rounded border border-slate-200 px-1 py-0.5 text-center"
-            />
-            {totalPages > 0 ? `/ ${totalPages}` : ""}
-          </label>
-          <button
-            type="button"
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-            disabled={totalPages > 0 ? pageIndex >= totalPages - 1 : true}
-            onClick={() => goToPage(pageIndex + 1)}
-          >
-            Volgende
-          </button>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-sm">
-          <button
-            type="button"
-            className="rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50"
-            onClick={() => changeZoom(-0.25)}
-          >
-            −
-          </button>
-          <span className="min-w-12 text-center text-slate-600">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            type="button"
-            className="rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50"
-            onClick={() => changeZoom(0.25)}
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        {scannedPages.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {scannedPages.map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => goToPage(page)}
-                className={`rounded px-2 py-0.5 text-xs font-medium ${
-                  page === pageIndex
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {page + 1}
-              </button>
-            ))}
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
+      <div className="shrink-0 rounded-t-lg border border-b-0 border-slate-200 bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+              disabled={pageIndex <= 0}
+              onClick={() => goToPage(pageIndex - 1)}
+            >
+              <ChevronLeftIcon />
+              Vorige
+            </button>
+            <label className="flex shrink-0 items-center gap-1 text-sm text-slate-600">
+              Pagina
+              <input
+                type="number"
+                min={1}
+                max={totalPages || undefined}
+                value={pageInput}
+                onChange={(event) => setPageInput(event.target.value)}
+                onBlur={() => goToPage(Number(pageInput) - 1)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") goToPage(Number(pageInput) - 1);
+                }}
+                className="w-16 rounded border border-slate-200 px-1 py-0.5 text-center"
+              />
+              {totalPages > 0 ? `/ ${totalPages}` : ""}
+            </label>
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+              disabled={totalPages > 0 ? pageIndex >= totalPages - 1 : true}
+              onClick={() => goToPage(pageIndex + 1)}
+            >
+              Volgende
+              <ChevronRightIcon />
+            </button>
           </div>
-        ) : (
-          <div />
-        )}
-        {legend}
+          <div className="flex shrink-0 items-center gap-2 text-sm">
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg ring-1 ring-slate-200 hover:bg-slate-50"
+              onClick={() => changeZoom(-0.25)}
+              aria-label="Uitzoomen"
+            >
+              <MinusIcon />
+            </button>
+            <span className="min-w-12 text-center text-slate-600">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg ring-1 ring-slate-200 hover:bg-slate-50"
+              onClick={() => changeZoom(0.25)}
+              aria-label="Inzoomen"
+            >
+              <PlusIcon />
+            </button>
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {scannedPages.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {scannedPages.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    page === pageIndex
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  {page + 1}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
+          )}
+          {legend}
+        </div>
       </div>
 
       <div
         ref={viewportRef}
-        className="relative min-h-0 flex-1 overflow-auto rounded border border-slate-200 bg-slate-50"
+        className="relative min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-b-lg border border-slate-200 bg-slate-50"
       >
         {rendering && (
-          <div className="absolute inset-x-0 top-0 z-10 bg-white/80 px-3 py-1 text-xs text-slate-500">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-white/80 px-3 py-1 text-xs text-slate-500">
             Pagina laden…
           </div>
         )}
@@ -465,19 +444,6 @@ export function PdfHighlightViewer({
                 />
               );
             })}
-            {onBack && selectedHighlight && pageSize ? (
-              <button
-                type="button"
-                className="absolute z-30 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
-                style={backChipStyle(selectedHighlight, pageSize)}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onBack();
-                }}
-              >
-                {backLabel}
-              </button>
-            ) : null}
           </div>
         </div>
       </div>

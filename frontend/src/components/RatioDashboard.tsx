@@ -13,6 +13,7 @@ import {
 import { getRatiosConfigMeta } from "../api/client";
 import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
 import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
+import { FormulaTokens } from "./FormulaTokens";
 import { SubTabs } from "./SubTabs";
 
 interface RatioDashboardProps {
@@ -25,21 +26,6 @@ interface RatioDashboardProps {
 
 function titleCase(value: string): string {
   return categoryLabel(value);
-}
-
-/** Split op gedeelde ' / ' zodat MAR-codes (29/58) niet verward worden met deling. */
-function FormulaDisplay({ formula }: { formula: string }) {
-  const parts = formula.split(" / ");
-  if (parts.length === 2) {
-    return (
-      <div className="inline-flex flex-col items-center font-mono text-xs text-slate-600">
-        <span>{parts[0]}</span>
-        <span className="my-0.5 w-full border-t border-slate-300" />
-        <span>{parts[1]}</span>
-      </div>
-    );
-  }
-  return <p className="font-mono text-xs text-slate-600">{formula}</p>;
 }
 
 interface RatioCardProps {
@@ -101,7 +87,7 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
           role="tooltip"
           className="absolute right-3 top-10 z-10 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm"
         >
-          <FormulaDisplay formula={ratio.formula} />
+          <FormulaTokens formula={ratio.formula} stacked showLabels={false} />
         </div>
       )}
       {ratio.missing_codes.length > 0 && (
@@ -189,20 +175,23 @@ function CategorySection({
   separated?: boolean;
 }) {
   return (
-    <section className={separated ? "border-t border-slate-200 pt-6" : undefined}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          {titleCase(category)}
-        </h2>
-        {onViewAll && (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-          >
-            Bekijk alle →
-          </button>
-        )}
+    <section className={separated ? "mt-10 border-t border-slate-300 pt-8" : "mt-8"}>
+      <div className="mb-5">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.22em] text-slate-800">
+            {titleCase(category)}
+          </h2>
+          {onViewAll && (
+            <button
+              type="button"
+              onClick={onViewAll}
+              className="mb-0.5 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+            >
+              Bekijk alle →
+            </button>
+          )}
+        </div>
+        <div className="mt-2 border-t border-slate-300" aria-hidden="true" />
       </div>
       {items.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">

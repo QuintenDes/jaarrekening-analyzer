@@ -6,6 +6,7 @@ import type {
   ScanHighlight,
   SourceSelection,
 } from "../types";
+import { ChevronLeftIcon, PanelRightIcon } from "./icons";
 import { PdfHighlightViewer } from "./PdfHighlightViewer";
 import { SourcePanel } from "./SourcePanel";
 
@@ -62,44 +63,43 @@ export function PdfWorkspace({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-slate-900">PDF scan</h2>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {onBack && (
             <button
               type="button"
-              className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
               onClick={onBack}
             >
+              <ChevronLeftIcon />
               {backLabel ?? "Terug"}
             </button>
           )}
           {collapsed ? (
             <button
               type="button"
-              className="hidden whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:inline-flex"
+              className="hidden items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:inline-flex"
               onClick={() => setCollapsed(false)}
             >
+              <PanelRightIcon />
               Toon bronnen
             </button>
           ) : null}
           <button
             type="button"
-            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:hidden"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:hidden"
             onClick={() => setDrawerOpen(true)}
           >
+            <PanelRightIcon />
             Bronnen
           </button>
         </div>
       </div>
 
-      <div
-        className={`grid min-h-0 flex-1 grid-rows-1 gap-3 overflow-hidden ${
-          collapsed ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]"
-        }`}
-      >
-        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <PdfHighlightViewer
             pdfUrl={pdfUrl}
             highlights={result.highlights ?? []}
@@ -107,12 +107,10 @@ export function PdfWorkspace({
             pageCount={result.page_count ?? null}
             selection={selection}
             onSelectHighlight={selectFromHighlight}
-            onBack={onBack}
-            backLabel={backLabel}
           />
         </div>
         {!collapsed && (
-          <div className="hidden h-full min-h-0 min-w-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
+          <div className="ml-3 hidden h-full w-[20rem] shrink-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
             {panel}
           </div>
         )}

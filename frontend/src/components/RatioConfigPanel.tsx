@@ -4,6 +4,7 @@ import {
   categoryLabel,
   cloneKeyIds,
   DEFAULT_DASHBOARD_RATIO_COUNT,
+  inferRatioCategory,
   orderedCategories,
   RATIO_CATEGORY_ORDER,
   rewriteKeyIds,
@@ -25,6 +26,15 @@ import {
   normalizeSpec,
 } from "../utils/ratiosYaml";
 import { SubTabs } from "./SubTabs";
+import { FormulaTokens } from "./FormulaTokens";
+import {
+  ChevronIcon,
+  DeleteIcon,
+  EditIcon,
+  ResetIcon,
+  SaveIcon,
+  UploadIcon,
+} from "./icons";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
 
@@ -38,13 +48,6 @@ function persistAdminToken(token: string) {
   } else {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   }
-}
-
-function formulaPreview(spec: RatioSpec): string {
-  if (spec.denominator) {
-    return `${spec.numerator} / ${spec.denominator}`;
-  }
-  return spec.numerator || "—";
 }
 
 function formatUpdatedAt(value: string | null): string {
@@ -83,6 +86,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   );
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
+  const [techOpen, setTechOpen] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = useMemo(
@@ -377,19 +381,6 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             </p>
             <p>Versie: {meta?.version ?? "—"}</p>
             <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
-            <label className="mt-3 block text-xs font-medium text-slate-600">
-              Aantal ratio’s per categorie op het Dashboard
-              <input
-                type="number"
-                min={1}
-                value={dashboardCount}
-                onChange={(event) => {
-                  const n = Number(event.target.value);
-                  setDashboardCount(Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1);
-                }}
-                className="mt-1 w-full max-w-[8rem] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-              />
-            </label>
           </div>
         </div>
       </div>
@@ -399,16 +390,18 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
           type="button"
           onClick={() => handleSave()}
           disabled={saving || loading || draft.length === 0}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
+          <SaveIcon />
           {saving ? "Opslaan…" : "Opslaan"}
         </button>
         <button
           type="button"
           onClick={() => void handleReset()}
           disabled={saving || loading}
-          className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
+          <ResetIcon />
           Reset naar defaults
         </button>
         <button
@@ -417,13 +410,13 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             setDraft((current) => [
               ...current,
               blankRatioSpec(
-                activeCategory,
+                inferRatioCategory("", activeCategory),
                 current.map((spec) => spec.id),
               ),
             ])
           }
           disabled={saving}
-          className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
           Toevoegen
         </button>
@@ -437,17 +430,32 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             })
           }
           disabled={exported.length === 0}
-          className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
           Exporteer YAML
         </button>
         <button
           type="button"
           onClick={() => setShowImport((value) => !value)}
-          className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
         >
+          <UploadIcon />
           Importeer YAML
         </button>
+        <label className="ml-auto flex h-9 items-center gap-2 text-sm text-slate-700">
+          <span className="whitespace-nowrap">Dashboard ratio’s</span>
+          <input
+            type="number"
+            min={1}
+            value={dashboardCount}
+            onChange={(event) => {
+              const n = Number(event.target.value);
+              setDashboardCount(Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1);
+            }}
+            className="h-9 w-16 rounded-lg border border-slate-200 px-2 text-center text-sm text-slate-900"
+            aria-label="Aantal ratio’s per categorie op het Dashboard"
+          />
+        </label>
       </div>
 
       {showImport && (
@@ -610,9 +618,10 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                             />
                           </td>
                           <td className="px-4 py-2">
-                            <span className="truncate font-mono text-xs text-slate-800">
-                              {formulaPreview(spec)}
-                            </span>
+                            <FormulaTokens
+                              numerator={spec.numerator}
+                              denominator={spec.denominator}
+                            />
                           </td>
                           <td className="px-4 py-2">
                             <div className="flex gap-1">
@@ -635,7 +644,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <div className="flex flex-wrap items-center gap-1">
+                            <div className="inline-flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -643,8 +652,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                                     current === index ? null : index,
                                   )
                                 }
-                                className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
                               >
+                                <EditIcon />
                                 {expanded === index ? "Sluiten" : "Bewerken"}
                               </button>
                               <button
@@ -654,8 +664,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                                     current.filter((_, i) => i !== index),
                                   )
                                 }
-                                className="rounded-lg px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
+                                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
                               >
+                                <DeleteIcon />
                                 Verwijderen
                               </button>
                             </div>
@@ -664,23 +675,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                         {expanded === index && (
                           <tr className="border-t border-slate-100 bg-slate-50">
                             <td colSpan={5} className="px-4 py-3">
-                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                 <Field
-                                  label="id (automatisch)"
-                                  value={spec.id}
-                                  onChange={() => undefined}
-                                  mono
-                                  readOnly
-                                />
-                                <Field
-                                  label="categorie"
-                                  value={spec.category}
-                                  onChange={(value) =>
-                                    updateSpec(index, { category: value })
-                                  }
-                                />
-                                <Field
-                                  label="numerator"
+                                  label="Teller"
                                   value={spec.numerator}
                                   onChange={(value) =>
                                     updateSpec(index, { numerator: value })
@@ -688,7 +685,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                                   mono
                                 />
                                 <Field
-                                  label="denominator"
+                                  label="Noemer"
                                   value={spec.denominator ?? ""}
                                   onChange={(value) =>
                                     updateSpec(index, {
@@ -699,7 +696,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                                   placeholder="(optioneel)"
                                 />
                                 <Field
-                                  label="multiply"
+                                  label="Factor"
                                   value={String(spec.multiply ?? 1)}
                                   onChange={(value) => {
                                     const n = Number(value);
@@ -710,13 +707,57 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                                   mono
                                 />
                                 <Field
-                                  label="unit"
+                                  label="Eenheid"
                                   value={spec.unit ?? ""}
                                   onChange={(value) =>
                                     updateSpec(index, { unit: value })
                                   }
                                 />
                               </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setTechOpen((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(index)) next.delete(index);
+                                    else next.add(index);
+                                    return next;
+                                  })
+                                }
+                                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+                              >
+                                <ChevronIcon open={techOpen.has(index)} />
+                                Technische details
+                              </button>
+                              {techOpen.has(index) ? (
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                  <Field
+                                    label="ID (automatisch)"
+                                    value={spec.id}
+                                    onChange={() => undefined}
+                                    mono
+                                    readOnly
+                                  />
+                                  <label className="block text-xs font-medium text-slate-600">
+                                    Categorie
+                                    <select
+                                      value={spec.category}
+                                      onChange={(event) =>
+                                        updateSpec(index, {
+                                          category: event.target.value,
+                                        })
+                                      }
+                                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                                    >
+                                      {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                          {categoryLabel(category)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                              ) : null}
                             </td>
                           </tr>
                         )}

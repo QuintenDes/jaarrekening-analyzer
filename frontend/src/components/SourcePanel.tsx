@@ -8,11 +8,11 @@ import {
 } from "../analysis/sources";
 import {
   cleanStatementLabel,
+  glossaryWhenDifferent,
   nbbGlossaryLabel,
 } from "../i18n/marLabels";
 import type { AmountFormat, SourceSelection } from "../types";
 import { formatAmount } from "../utils/format";
-import { MarEmblem } from "./MarEmblem";
 
 interface SourcePanelProps {
   entries: SourceEntry[];
@@ -78,8 +78,11 @@ export function SourcePanel({
               {group.items.map((entry) => {
                 const selected = selection?.section === entry.section && selection.code === entry.code;
                 const open = expanded.has(entry.key);
-                const printedLabel = cleanStatementLabel(entry.label);
-                const official = nbbGlossaryLabel(entry.code);
+                const pdfText = cleanStatementLabel(entry.label);
+                const marLabel = nbbGlossaryLabel(entry.code);
+                const extraPdfText = glossaryWhenDifferent(entry.code, pdfText)
+                  ? pdfText
+                  : null;
                 return (
                   <li key={entry.key} className="border-t border-slate-100">
                     <button
@@ -90,14 +93,19 @@ export function SourcePanel({
                       }`}
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-slate-800">
-                          {printedLabel || "—"}
+                        <span className="flex flex-wrap items-baseline gap-2">
+                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-slate-800">
+                            {entry.code}
+                          </span>
+                          <span className="min-w-0 font-medium text-slate-800">
+                            {marLabel ?? pdfText ?? "—"}
+                          </span>
                         </span>
-                        <span className="mt-1 flex flex-wrap items-baseline gap-1.5 text-xs font-normal text-slate-500">
-                          <MarEmblem />
-                          {official ? <span>{official}</span> : null}
-                          <span className="font-mono text-slate-600">{entry.code}</span>
-                        </span>
+                        {extraPdfText ? (
+                          <span className="mt-1 block text-xs font-normal text-slate-500">
+                            {extraPdfText}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="shrink-0 pt-0.5 font-mono text-xs text-slate-600">
                         {formatAmount(entry.amount, amountFormat)}

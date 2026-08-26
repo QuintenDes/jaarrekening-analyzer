@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from "react";
+import { UploadIcon } from "./icons";
 
 interface UploadZoneProps {
   /** Wordt aangeroepen zodra de gebruiker een PDF kiest — parent doet de API-call. */
@@ -110,8 +111,9 @@ export function HeaderUploadButton({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
       >
+        <UploadIcon />
         Andere PDF
       </button>
     </>
