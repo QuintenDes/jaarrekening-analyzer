@@ -28,12 +28,15 @@ import {
 import { SubTabs } from "./SubTabs";
 import { FormulaTokens } from "./FormulaTokens";
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   ChevronIcon,
   DeleteIcon,
+  DownloadIcon,
   EditIcon,
+  ImportIcon,
   ResetIcon,
   SaveIcon,
-  UploadIcon,
 } from "./icons";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
@@ -430,8 +433,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             })
           }
           disabled={exported.length === 0}
-          className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
+          <DownloadIcon />
           Exporteer YAML
         </button>
         <button
@@ -439,7 +443,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
           onClick={() => setShowImport((value) => !value)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
         >
-          <UploadIcon />
+          <ImportIcon />
           Importeer YAML
         </button>
         <label className="ml-auto flex h-9 items-center gap-2 text-sm text-slate-700">
@@ -586,9 +590,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                   <thead className="sticky top-0 bg-white text-slate-500">
                     <tr className="border-b border-slate-200">
                       <th className="w-14 px-4 py-2 font-medium">Aan</th>
-                      <th className="px-4 py-2 font-medium">Naam</th>
+                      <th className="min-w-[22rem] px-4 py-2 font-medium">Naam</th>
                       <th className="px-4 py-2 font-medium">Formule</th>
-                      <th className="w-28 px-4 py-2 font-medium">Volgorde</th>
+                      <th className="whitespace-nowrap px-4 py-2 font-medium">Volgorde</th>
                       <th className="w-40 px-4 py-2 font-medium">Acties</th>
                     </tr>
                   </thead>
@@ -607,38 +611,41 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                               aria-label={`${spec.name} inschakelen`}
                             />
                           </td>
-                          <td className="px-4 py-2">
+                          <td className="min-w-[22rem] px-4 py-2">
                             <input
                               type="text"
                               value={spec.name}
                               onChange={(event) =>
                                 updateSpec(index, { name: event.target.value })
                               }
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
+                              className="w-full min-w-[22rem] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
                             />
                           </td>
                           <td className="px-4 py-2">
                             <FormulaTokens
                               numerator={spec.numerator}
                               denominator={spec.denominator}
+                              showLabels={false}
                             />
                           </td>
                           <td className="px-4 py-2">
-                            <div className="flex gap-1">
+                            <div className="flex flex-nowrap gap-1">
                               <button
                                 type="button"
                                 onClick={() => moveSpec(index, -1)}
                                 disabled={rowIndex === 0}
-                                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                                className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
                               >
+                                <ArrowUpIcon />
                                 Omhoog
                               </button>
                               <button
                                 type="button"
                                 onClick={() => moveSpec(index, 1)}
                                 disabled={rowIndex === categoryRows.length - 1}
-                                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                                className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
                               >
+                                <ArrowDownIcon />
                                 Omlaag
                               </button>
                             </div>

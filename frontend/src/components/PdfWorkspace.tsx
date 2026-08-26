@@ -107,10 +107,12 @@ export function PdfWorkspace({
             pageCount={result.page_count ?? null}
             selection={selection}
             onSelectHighlight={selectFromHighlight}
+            onBack={onBack}
+            backLabel={backLabel}
           />
         </div>
         {!collapsed && (
-          <div className="ml-3 hidden h-full w-[20rem] shrink-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
+          <div className="ml-3 hidden h-full w-[26rem] shrink-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
             {panel}
           </div>
         )}
@@ -124,7 +126,7 @@ export function PdfWorkspace({
             aria-label="Sluit bronnen"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="absolute inset-y-0 right-0 w-[min(100%,22rem)] border-l border-slate-200 bg-white shadow-lg">
+          <div className="absolute inset-y-0 right-0 w-[min(100%,28rem)] border-l border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
               <span className="text-sm font-semibold">Bronnen</span>
               <button

@@ -32,6 +32,26 @@ export function UploadIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 20h14" />
+    </Icon>
+  );
+}
+
+export function ImportIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="9" y="3" width="12" height="18" rx="1.5" />
+      <path d="M3 12h8" />
+      <path d="m8 8 4 4-4 4" />
+    </Icon>
+  );
+}
+
 export function SaveIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
@@ -110,6 +130,24 @@ export function MinusIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
       <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+export function ArrowUpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Icon>
+  );
+}
+
+export function ArrowDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
     </Icon>
   );
 }

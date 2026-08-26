@@ -175,23 +175,20 @@ function CategorySection({
   separated?: boolean;
 }) {
   return (
-    <section className={separated ? "mt-10 border-t border-slate-300 pt-8" : "mt-8"}>
-      <div className="mb-5">
-        <div className="flex items-end justify-between gap-3">
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.22em] text-slate-800">
-            {titleCase(category)}
-          </h2>
-          {onViewAll && (
-            <button
-              type="button"
-              onClick={onViewAll}
-              className="mb-0.5 text-sm font-medium text-emerald-700 hover:text-emerald-800"
-            >
-              Bekijk alle →
-            </button>
-          )}
-        </div>
-        <div className="mt-2 border-t border-slate-300" aria-hidden="true" />
+    <section className={separated ? "mt-10" : "mt-8"}>
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <h2 className="text-[13px] font-bold uppercase tracking-[0.22em] text-slate-800">
+          {titleCase(category)}
+        </h2>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="mb-0.5 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+          >
+            Bekijk alle →
+          </button>
+        )}
       </div>
       {items.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">

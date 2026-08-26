@@ -1,12 +1,8 @@
 import { useEffect, useRef } from "react";
-import {
-  cleanStatementLabel,
-  glossaryWhenDifferent,
-} from "../i18n/marLabels";
+import { cleanStatementLabel } from "../i18n/marLabels";
 import type { AmountFormat, StatementLine } from "../types";
 import { formatAmount } from "../utils/format";
 import { assignLineDepths } from "../utils/marDepth";
-import { MarEmblem } from "./MarEmblem";
 
 interface StatementTableProps {
   title: string;
@@ -21,7 +17,7 @@ const INDENT_CLASS = ["pl-4", "pl-8", "pl-12", "pl-16"] as const;
 
 /**
  * Presentational table: toont StatementLine[] zonder API-calls.
- * Kolommen: code | PDF-omschrijving + MAR-label | toelichting | boekjaar | vorig.
+ * Kolommen: code | PDF-omschrijving | toelichting | boekjaar | vorig.
  * Hiërarchie (vet/inspringing) volgt MAR-nesting zoals in de PDF.
  */
 export function StatementTable({
@@ -72,14 +68,13 @@ export function StatementTable({
                   : "pl-4";
               const selected = selectedCode === line.code;
               const printedLabel = cleanStatementLabel(line.label || "");
-              const glossary = glossaryWhenDifferent(line.code, printedLabel);
 
               return (
                 <tr
                   key={`${line.code}-${index}`}
                   ref={selected ? selectedRef : undefined}
                   onClick={() => onSelectRow?.(line.code)}
-                  className={`border-t border-slate-100 ${onSelectRow ? "cursor-pointer" : ""} ${
+                  className={`${onSelectRow ? "cursor-pointer" : ""} ${
                     selected
                       ? "bg-emerald-50/80 shadow-[inset_3px_0_0_0_theme(colors.emerald.600)]"
                       : "hover:bg-slate-50"
@@ -99,13 +94,7 @@ export function StatementTable({
                       emphasize ? "font-semibold text-slate-900" : "text-slate-800"
                     }`}
                   >
-                    <span>{printedLabel || "—"}</span>
-                    {glossary ? (
-                      <span className="mt-1 flex items-baseline gap-1.5 text-xs font-normal text-slate-500">
-                        <MarEmblem />
-                        <span>{glossary}</span>
-                      </span>
-                    ) : null}
+                    {printedLabel || "—"}
                   </td>
                   <td className="px-4 py-2.5 align-top text-slate-500">
                     {line.footnote || "—"}

@@ -6,11 +6,7 @@ import {
   selectionForEntry,
   type SourceEntry,
 } from "../analysis/sources";
-import {
-  cleanStatementLabel,
-  glossaryWhenDifferent,
-  nbbGlossaryLabel,
-} from "../i18n/marLabels";
+import { cleanStatementLabel } from "../i18n/marLabels";
 import type { AmountFormat, SourceSelection } from "../types";
 import { formatAmount } from "../utils/format";
 
@@ -79,36 +75,25 @@ export function SourcePanel({
                 const selected = selection?.section === entry.section && selection.code === entry.code;
                 const open = expanded.has(entry.key);
                 const pdfText = cleanStatementLabel(entry.label);
-                const marLabel = nbbGlossaryLabel(entry.code);
-                const extraPdfText = glossaryWhenDifferent(entry.code, pdfText)
-                  ? pdfText
-                  : null;
                 return (
                   <li key={entry.key} className="border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => onSelect(selectionForEntry(entry))}
-                      className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm ${
+                      className={`flex w-full flex-col gap-1 px-3 py-2 text-left text-sm ${
                         selected ? "bg-emerald-50" : "hover:bg-slate-50"
                       }`}
                     >
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-baseline gap-2">
-                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-slate-800">
-                            {entry.code}
-                          </span>
-                          <span className="min-w-0 font-medium text-slate-800">
-                            {marLabel ?? pdfText ?? "—"}
-                          </span>
-                        </span>
-                        {extraPdfText ? (
-                          <span className="mt-1 block text-xs font-normal text-slate-500">
-                            {extraPdfText}
-                          </span>
-                        ) : null}
+                      <span className="font-medium text-slate-800">
+                        {pdfText || "—"}
                       </span>
-                      <span className="shrink-0 pt-0.5 font-mono text-xs text-slate-600">
-                        {formatAmount(entry.amount, amountFormat)}
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="shrink-0 font-mono text-xs text-slate-600">
+                          {entry.code}
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-slate-600">
+                          {formatAmount(entry.amount, amountFormat)}
+                        </span>
                       </span>
                     </button>
                     {entry.occurrences.length > 1 && (

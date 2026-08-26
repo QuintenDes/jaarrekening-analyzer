@@ -52,6 +52,8 @@ type Props = {
   pageCount: number | null;
   selection: SourceSelection | null;
   onSelectHighlight: (highlight: ScanHighlight, occurrenceIndex: number) => void;
+  onBack?: () => void;
+  backLabel?: string;
 };
 
 function occurrenceIndexOf(
@@ -84,6 +86,25 @@ function overlayStyleFor(
   };
 }
 
+function backChipStyleFor(
+  h: ScanHighlight,
+  pageSize: PageSize | undefined,
+): CSSProperties {
+  if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
+    return { display: "none" };
+  }
+  const leftPct = (h.x0 / pageSize.width) * 100;
+  const midY = ((h.top + h.bottom) / 2 / pageSize.height) * 100;
+  const pinInside = leftPct < 14;
+  return {
+    left: `${leftPct}%`,
+    top: `${midY}%`,
+    transform: pinInside
+      ? "translate(8px, -50%)"
+      : "translate(calc(-100% - 8px), -50%)",
+  };
+}
+
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -91,6 +112,8 @@ export function PdfHighlightViewer({
   pageCount,
   selection,
   onSelectHighlight,
+  onBack,
+  backLabel,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -265,6 +288,20 @@ export function PdfHighlightViewer({
 
   const pageSize = pageSizes[pageIndex];
 
+  const selectedHighlight = useMemo(() => {
+    if (!selection) return null;
+    return (
+      pageHighlights.find((h) => {
+        const occ = occurrenceIndexOf(highlights, h);
+        return (
+          selection.section === h.section &&
+          selection.code === h.code &&
+          selection.occurrenceIndex === occ
+        );
+      }) ?? null
+    );
+  }, [selection, pageHighlights, highlights]);
+
   function goToPage(next: number) {
     if (totalPages <= 0) return;
     const clamped = Math.min(totalPages - 1, Math.max(0, next));
@@ -414,7 +451,7 @@ export function PdfHighlightViewer({
         )}
         <div className="relative inline-block min-w-full">
           <canvas ref={canvasRef} className="block h-auto max-w-none" />
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 overflow-visible">
             {pageHighlights.map((h, index) => {
               const occ = occurrenceIndexOf(highlights, h);
               const selected =
@@ -444,6 +481,17 @@ export function PdfHighlightViewer({
                 />
               );
             })}
+            {onBack && selectedHighlight ? (
+              <button
+                type="button"
+                className="absolute z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
+                style={backChipStyleFor(selectedHighlight, pageSize)}
+                onClick={onBack}
+              >
+                <ChevronLeftIcon />
+                {backLabel ?? "Terug"}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

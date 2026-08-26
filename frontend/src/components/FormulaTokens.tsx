@@ -97,7 +97,7 @@ export function FormulaTokens({
   formula,
   numerator,
   denominator,
-  showLabels = true,
+  showLabels = false,
   stacked = false,
 }: FormulaTokensProps) {
   let top = numerator?.trim() ?? "";
