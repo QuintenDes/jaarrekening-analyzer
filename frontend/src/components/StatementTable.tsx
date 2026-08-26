@@ -1,10 +1,16 @@
-import type { StatementLine } from "../types";
+import { useEffect, useRef } from "react";
+import { nbbGlossaryLabel } from "../i18n/marLabels";
+import type { AmountFormat, StatementLine } from "../types";
 import { formatAmount } from "../utils/format";
 import { assignLineDepths } from "../utils/marDepth";
 
 interface StatementTableProps {
   title: string;
   lines: StatementLine[];
+  amountFormat?: AmountFormat;
+  selectedCode?: string | null;
+  onSelectRow?: (code: string) => void;
+  readOnly?: boolean;
 }
 
 const INDENT_CLASS = ["pl-4", "pl-8", "pl-12", "pl-16"] as const;
@@ -14,8 +20,20 @@ const INDENT_CLASS = ["pl-4", "pl-8", "pl-12", "pl-16"] as const;
  * Kolommen mirroren de NBB-PDF: code | omschrijving | toelichting | boekjaar | vorig.
  * Hiërarchie (vet/inspringing) volgt MAR-nesting zoals in de PDF.
  */
-export function StatementTable({ title, lines }: StatementTableProps) {
+export function StatementTable({
+  title,
+  lines,
+  amountFormat = "full",
+  selectedCode,
+  onSelectRow,
+  readOnly = false,
+}: StatementTableProps) {
   const depths = assignLineDepths(lines);
+  const selectedRef = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedCode]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -46,15 +64,24 @@ export function StatementTable({ title, lines }: StatementTableProps) {
                 depth > 0
                   ? INDENT_CLASS[Math.min(depth, INDENT_CLASS.length) - 1]
                   : "pl-4";
+              const selected = selectedCode === line.code;
+              const glossary = nbbGlossaryLabel(line.code);
+              const showGlossary =
+                glossary &&
+                glossary.toLowerCase() !== (line.label || "").toLowerCase();
 
               return (
                 <tr
                   key={`${line.code}-${index}`}
-                  className={`border-t hover:bg-slate-50 ${
-                    emphasize
-                      ? "border-slate-200 bg-slate-50/80"
-                      : "border-slate-100"
-                  }`}
+                  ref={selected ? selectedRef : undefined}
+                  onClick={() => onSelectRow?.(line.code)}
+                  className={`border-t ${onSelectRow ? "cursor-pointer" : ""} ${
+                    selected
+                      ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300"
+                      : emphasize
+                        ? "border-slate-200 bg-slate-50/80 hover:bg-slate-50"
+                        : "border-slate-100 hover:bg-slate-50"
+                  } ${readOnly ? "" : ""}`}
                 >
                   <td
                     className={`px-4 py-2 align-top font-mono ${
@@ -70,16 +97,21 @@ export function StatementTable({ title, lines }: StatementTableProps) {
                       emphasize ? "font-semibold" : ""
                     }`}
                   >
-                    {line.label || "—"}
+                    <span>{line.label || "—"}</span>
+                    {showGlossary && (
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                        {glossary}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 align-top text-slate-500">
                     {line.footnote || "—"}
                   </td>
                   <td className="px-4 py-2 align-top text-right font-mono">
-                    {formatAmount(line.current)}
+                    {formatAmount(line.current, amountFormat)}
                   </td>
                   <td className="px-4 py-2 align-top text-right font-mono">
-                    {formatAmount(line.previous)}
+                    {formatAmount(line.previous, amountFormat)}
                   </td>
                 </tr>
               );

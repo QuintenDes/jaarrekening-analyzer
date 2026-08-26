@@ -11,8 +11,10 @@ Resultaat is een AnalysisResult die rechtstreeks als JSON kan terug naar de fron
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.mar.aggregator import CodeAggregator
-from app.models.schemas import AnalysisResult, PageSize
+from app.models.schemas import AnalysisResult, PageSize, StatementLine
 from app.pdf.detector import is_text_pdf
 from app.pdf.extractor import extract_statements
 from app.ratios.engine import (
@@ -21,27 +23,57 @@ from app.ratios.engine import (
     compute_ratios,
     validate_balance,
 )
+from app.services.progress import CancelCheck, ProgressCallback, StageId
+
+
+def _noop_progress(_stage: StageId) -> None:
+    return
+
+
+def _noop_cancel() -> None:
+    return
+
+
+def compute_from_statements(
+    balance_assets: list[StatementLine],
+    balance_liabilities: list[StatementLine],
+    income_statement: list[StatementLine],
+    ratio_specs: list[dict] | None = None,
+) -> tuple[list, list[str]]:
+    """Herbereken ratio's en balansvalidatie zonder PDF-extractie."""
+    all_lines = balance_assets + balance_liabilities + income_statement
+    aggregator = CodeAggregator(all_lines)
+    ratios = compute_ratios(aggregator, specs=ratio_specs)
+    validations = validate_balance(aggregator)
+    return ratios, validations
 
 
 def analyze_pdf(
     pdf_bytes: bytes,
     ratio_specs: list[dict] | None = None,
+    *,
+    on_progress: ProgressCallback | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> AnalysisResult:
     """Voer de volledige analyse uit op ruwe PDF-bytes.
 
     ratio_specs: optionele sandbox-override; None = ratios.yaml op schijf.
     """
 
+    progress: Callable[[StageId], None] = on_progress or _noop_progress
+    check: CancelCheck = cancel_check or _noop_cancel
     warnings: list[str] = []
 
-    # 1) Detecteer (en weiger) gescande PDF's zonder tekstlaag.
+    progress("validate_pdf")
+    check()
     if not is_text_pdf(pdf_bytes):
         raise ValueError(
             "Gescande PDF gedetecteerd — nog niet ondersteund. "
             "Upload een tekst-PDF (zoals een NBB-jaarrekening)."
         )
 
-    # 2) Extractie: primaire staten na JAARREKENING, tot vóór TOELICHTING.
+    progress("extract")
+    check()
     statements, schema_format, highlights, page_count, page_sizes = extract_statements(
         pdf_bytes
     )
@@ -55,17 +87,20 @@ def analyze_pdf(
     if not income_statement:
         warnings.append("Geen resultatenrekening gevonden in de PDF.")
 
-    # 3) Aggregatie: lookup tabel van MAR-code → bedrag (zonder resultaatverwerking).
+    progress("aggregate")
+    check()
     all_lines = balance_assets + balance_liabilities + income_statement
     aggregator = CodeAggregator(all_lines)
 
-    # 4) Ratio's + structuren + eenvoudige validaties.
+    progress("ratios")
+    check()
     ratios = compute_ratios(aggregator, specs=ratio_specs)
     balance_structure = compute_balance_structure(balance_assets)
     income_structure = compute_income_structure(income_statement)
     validations = validate_balance(aggregator)
 
-    # 5) Bundel alles in het API-response model.
+    progress("finalize")
+    check()
     return AnalysisResult(
         schema_format=schema_format,
         balance_assets=balance_assets,

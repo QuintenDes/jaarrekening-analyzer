@@ -82,6 +82,27 @@ class PageSize(BaseModel):
     height: float
 
 
+class RatioComputeRequest(BaseModel):
+    """Herbereken ratio's op bestaande staten (sandbox, zonder PDF opnieuw te parsen)."""
+
+    balance_assets: list[StatementLine]
+    balance_liabilities: list[StatementLine]
+    income_statement: list[StatementLine]
+    ratios: list[RatioSpec] | None = None
+
+
+class RatioComputeResponse(BaseModel):
+    """Antwoord van POST /api/ratios/compute."""
+
+    ratios: list[RatioResult]
+    validations: list[str]
+
+
+class AnalyzeJobCreated(BaseModel):
+    job_id: str
+    status: str
+
+
 class AnalysisResult(BaseModel):
     """Volledig antwoord van de analyse-pipeline — dit serialiseert naar JSON."""
 
@@ -100,3 +121,18 @@ class AnalysisResult(BaseModel):
     highlights: list[ScanHighlight] = Field(default_factory=list)
     page_count: int | None = None
     page_sizes: list[PageSize] = Field(default_factory=list)
+
+
+class AnalyzeJobStatus(BaseModel):
+    job_id: str
+    status: str
+    current_stage: str | None = None
+    current_stage_label: str | None = None
+    completed_stages: list[str] = Field(default_factory=list)
+    stage_labels: dict[str, str] = Field(default_factory=dict)
+    stage_order: list[str] = Field(default_factory=list)
+    error: str | None = None
+    error_stage: str | None = None
+    error_stage_label: str | None = None
+    error_detail: str | None = None
+    result: AnalysisResult | None = None

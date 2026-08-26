@@ -11,7 +11,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 # Paths that accept heavy / abuse-prone POST bodies.
-LIMITED_PATHS = frozenset({"/api/analyze", "/api/ratios/parse"})
+LIMITED_PATHS = frozenset(
+    {"/api/analyze", "/api/analyze/jobs", "/api/ratios/parse", "/api/ratios/compute"}
+)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

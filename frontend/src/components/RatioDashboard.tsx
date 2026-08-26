@@ -4,6 +4,8 @@ import { formatRatio } from "../utils/format";
 
 interface RatioDashboardProps {
   ratios: RatioResult[];
+  updating?: boolean;
+  staleFailure?: boolean;
 }
 
 function titleCase(value: string): string {
@@ -89,7 +91,7 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
       )}
       {ratio.missing_codes.length > 0 && (
         <p className="mt-2 text-xs text-amber-700">
-          Ontbrekend: {ratio.missing_codes.join(", ")}
+          Niet beschikbaar — ontbrekende gegevens: {ratio.missing_codes.join(", ")}
         </p>
       )}
     </div>
@@ -100,12 +102,26 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
  * Presentational dashboard: groepeert RatioResult[] per category,
  * toont waarde (formatRatio), formule via info-knop en ontbrekende MAR-codes.
  */
-export function RatioDashboard({ ratios }: RatioDashboardProps) {
+export function RatioDashboard({
+  ratios,
+  updating = false,
+  staleFailure = false,
+}: RatioDashboardProps) {
   const categories = [...new Set(ratios.map((ratio) => ratio.category))];
   const [openFormulaId, setOpenFormulaId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
+      {updating && (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+          Wordt bijgewerkt
+        </p>
+      )}
+      {staleFailure && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          Deze waarden weerspiegelen niet de laatste sandbox-wijzigingen.
+        </p>
+      )}
       {categories.map((category) => (
         <div
           key={category}

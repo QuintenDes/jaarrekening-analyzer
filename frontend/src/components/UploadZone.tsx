@@ -3,13 +3,15 @@ import { useRef, useState, type DragEvent } from "react";
 interface UploadZoneProps {
   /** Wordt aangeroepen zodra de gebruiker een PDF kiest — parent doet de API-call. */
   onFile: (file: File) => void;
-  /** True tijdens analyse: input disabled + grijze look. */
+  /** True tijdens analyse: visuele status; selectie van een andere PDF blijft mogelijk. */
   loading: boolean;
 }
 
 function isPdfFile(file: File): boolean {
   return (
-    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+    file.type === "application/pdf" ||
+    file.type === "application/octet-stream" ||
+    file.name.toLowerCase().endsWith(".pdf")
   );
 }
 
@@ -23,7 +25,6 @@ export function UploadZone({ onFile, loading }: UploadZoneProps) {
   function handleDragEnter(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (loading) return;
     dragDepth.current += 1;
     setDragging(true);
   }
@@ -45,7 +46,6 @@ export function UploadZone({ onFile, loading }: UploadZoneProps) {
     event.stopPropagation();
     dragDepth.current = 0;
     setDragging(false);
-    if (loading) return;
 
     const file = event.dataTransfer.files?.[0];
     if (file && isPdfFile(file)) onFile(file);
@@ -61,7 +61,7 @@ export function UploadZone({ onFile, loading }: UploadZoneProps) {
       onDrop={handleDrop}
       className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-8 py-12 transition outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
         loading
-          ? "border-slate-300 bg-slate-100 opacity-60"
+          ? "border-slate-300 bg-slate-100"
           : dragging
             ? "border-emerald-600 bg-emerald-50"
             : "border-emerald-400 bg-white hover:border-emerald-500 hover:bg-emerald-50"
@@ -71,17 +71,15 @@ export function UploadZone({ onFile, loading }: UploadZoneProps) {
         type="file"
         accept=".pdf,application/pdf"
         className="hidden"
-        disabled={loading}
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) onFile(file);
-          // Zelfde bestand opnieuw kunnen kiezen
+          if (file && isPdfFile(file)) onFile(file);
           event.target.value = "";
         }}
       />
       <p className="text-lg font-medium text-slate-800">
         {loading
-          ? "PDF analyseren..."
+          ? "Analyse bezig — kies een andere PDF om opnieuw te starten"
           : "Sleep een jaarrekening-PDF hierheen of klik om te kiezen"}
       </p>
     </label>

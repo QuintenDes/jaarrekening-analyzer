@@ -11,11 +11,11 @@ export const SANDBOX_DRAFT_KEY = "ratioSandboxDraft";
 export const SANDBOX_ENABLED_KEY = "ratioSandboxEnabled";
 
 export function loadSandboxEnabled(): boolean {
-  return sessionStorage.getItem(SANDBOX_ENABLED_KEY) === "1";
+  return false;
 }
 
 export function loadSandboxDraft(): RatioSpec[] | null {
-  const raw = sessionStorage.getItem(SANDBOX_DRAFT_KEY);
+  const raw = localStorage.getItem(SANDBOX_DRAFT_KEY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as RatioSpec[];
@@ -44,6 +44,7 @@ export function RatioSandbox({
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,20 +74,33 @@ export function RatioSandbox({
   }, [onDraftChange]);
 
   function updateSpec(index: number, patch: Partial<RatioSpec>) {
+    setDirty(true);
     onDraftChange(
       draft.map((spec, i) => (i === index ? normalizeSpec({ ...spec, ...patch }) : spec)),
     );
   }
 
   function removeSpec(index: number) {
+    setDirty(true);
     onDraftChange(draft.filter((_, i) => i !== index));
   }
 
   function resetToDefaults() {
-    if (defaults) onDraftChange(defaults.map((s) => normalizeSpec(s)));
+    if (defaults) {
+      setDirty(false);
+      onDraftChange(defaults.map((s) => normalizeSpec(s)));
+    }
   }
 
   async function applyImport(yamlText: string) {
+    if (
+      dirty &&
+      !window.confirm(
+        "De huidige sandbox heeft niet-opgeslagen wijzigingen. Importeren vervangt de volledige configuratie. Doorgaan?",
+      )
+    ) {
+      return;
+    }
     setImporting(true);
     setError(null);
     try {
@@ -94,6 +108,7 @@ export function RatioSandbox({
       onDraftChange(specs.map((s) => normalizeSpec(s)));
       setShowImport(false);
       setImportText("");
+      setDirty(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import mislukt");
     } finally {
@@ -109,8 +124,8 @@ export function RatioSandbox({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-        wijzigingen gelden alleen
-        voor jouw volgende analyse, niet voor de server-default (
+        wijzigingen gelden globaal in deze browser en worden meegenomen naar de
+        volgende analyse. Ze worden niet naar de server geschreven (
         <code className="font-mono text-xs">ratios.yaml</code>). Exporteer YAML om
         wijzigingen te delen of te committen.
       </div>
@@ -129,7 +144,10 @@ export function RatioSandbox({
         <div className="ml-auto flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => onDraftChange([...draft, blankRatioSpec()])}
+            onClick={() => {
+              setDirty(true);
+              onDraftChange([...draft, blankRatioSpec()]);
+            }}
             className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
           >
             Toevoegen

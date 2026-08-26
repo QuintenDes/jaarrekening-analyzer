@@ -1,7 +1,21 @@
+import type { AmountFormat } from "../types";
+
 /** Format bedragen als nl-BE (punt als duizendtallen-scheiding). */
-export function formatAmount(value: number | null | undefined): string {
+export function formatAmount(
+  value: number | null | undefined,
+  format: AmountFormat = "full",
+): string {
   if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("nl-BE").format(value);
+  if (format === "compact") {
+    return new Intl.NumberFormat("nl-BE", {
+      notation: "compact",
+      compactDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("nl-BE", { maximumFractionDigits: 0 }).format(
+    value,
+  );
 }
 
 /**

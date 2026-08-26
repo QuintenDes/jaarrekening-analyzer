@@ -75,3 +75,68 @@ export interface AnalysisResult {
   page_count?: number | null;
   page_sizes?: PageSize[];
 }
+
+export type AnalysisStatus =
+  | "idle"
+  | "selected"
+  | "analyzing"
+  | "completed"
+  | "error"
+  | "canceled";
+
+export type AnalyzeJobStatusValue =
+  | "queued"
+  | "running"
+  | "completed"
+  | "error"
+  | "canceled";
+
+export interface AnalyzeJobStatus {
+  job_id: string;
+  status: AnalyzeJobStatusValue;
+  current_stage: string | null;
+  current_stage_label: string | null;
+  completed_stages: string[];
+  stage_labels: Record<string, string>;
+  stage_order: string[];
+  error: string | null;
+  error_stage: string | null;
+  error_stage_label: string | null;
+  error_detail: string | null;
+  result: AnalysisResult | null;
+}
+
+export interface AnalyzeJobCreated {
+  job_id: string;
+  status: string;
+}
+
+export interface RatioComputeResponse {
+  ratios: RatioResult[];
+  validations: string[];
+}
+
+export type AmountFormat = "full" | "compact";
+
+export type StatementSectionId =
+  | "balans_activa"
+  | "balans_passiva"
+  | "resultatenrekening"
+  | "resultaatverwerking";
+
+export interface SourceSelection {
+  section: StatementSectionId;
+  code: string;
+  occurrenceIndex: number;
+  page: number;
+}
+
+export type Tab =
+  | "pdf_scan"
+  | "balans_activa"
+  | "balans_passiva"
+  | "resultaten"
+  | "resultaatverwerking"
+  | "ratios"
+  | "sandbox"
+  | "settings";

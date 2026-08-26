@@ -1,26 +1,32 @@
-import { useEffect, useRef, useState } from "react";
-import { analyzePdf } from "./api/client";
-import { PdfHighlightViewer } from "./components/PdfHighlightViewer";
-import { RatioDashboard } from "./components/RatioDashboard";
+import { useEffect, useMemo, useState } from "react";
 import {
-  loadSandboxDraft,
-  loadSandboxEnabled,
-  RatioSandbox,
-  SANDBOX_DRAFT_KEY,
-  SANDBOX_ENABLED_KEY,
-} from "./components/RatioSandbox";
+  buildSourceEntries,
+  findEntry,
+  selectionForEntry,
+  tabForSection,
+} from "./analysis/sources";
+import { useAnalysisSession } from "./analysis/useAnalysisSession";
+import { getRatiosConfig } from "./api/client";
+import { AmountFormatToggle } from "./components/AmountFormatToggle";
+import { AnalysisErrorCard } from "./components/AnalysisErrorCard";
+import { PdfWorkspace } from "./components/PdfWorkspace";
+import { ProcessingPanel } from "./components/ProcessingPanel";
+import { RatioDashboard } from "./components/RatioDashboard";
+import { RatioSandbox } from "./components/RatioSandbox";
+import { SandboxIndicator } from "./components/SandboxIndicator";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { StatementTable } from "./components/StatementTable";
 import { UploadZone } from "./components/UploadZone";
-import type { AnalysisResult, RatioSpec } from "./types";
-
-type Tab =
-  | "pdf_scan"
-  | "balans_activa"
-  | "balans_passiva"
-  | "resultaten"
-  | "resultaatverwerking"
-  | "ratios"
-  | "sandbox";
+import { ValidationPanel } from "./components/ValidationPanel";
+import { WarningBanners } from "./components/WarningBanners";
+import { loadAmountFormat, saveAmountFormat } from "./persistence/preferences";
+import type {
+  AmountFormat,
+  RatioSpec,
+  SourceSelection,
+  StatementSectionId,
+  Tab,
+} from "./types";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "ratios", label: "Ratio's" },
@@ -30,87 +36,84 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "resultaten", label: "Resultatenrekening" },
   { id: "resultaatverwerking", label: "Resultaatverwerking" },
   { id: "pdf_scan", label: "PDF scan" },
+  { id: "settings", label: "Instellingen" },
 ];
 
-const ANALYSIS_CACHE_KEY = "analysisResult";
-
-function loadCachedAnalysis(): AnalysisResult | null {
-  const cached = sessionStorage.getItem(ANALYSIS_CACHE_KEY);
-  if (!cached) return null;
-  try {
-    return JSON.parse(cached) as AnalysisResult;
-  } catch {
-    sessionStorage.removeItem(ANALYSIS_CACHE_KEY);
-    return null;
-  }
-}
-
-/**
- * Enige orchestrator-component:
- * - result / loading / error / activeTab state
- * - sessionStorage cache zodat refresh de laatste analyse behoudt
- * - PDF blob URL alleen in geheugen (niet in sessionStorage)
- * - ratio sandbox: draft + enabled in sessionStorage, nooit server-write
- */
 function App() {
-  const [result, setResult] = useState<AnalysisResult | null>(loadCachedAnalysis);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab | null>(() =>
-    result ? "ratios" : null,
-  );
-  const [sandboxEnabled, setSandboxEnabled] = useState(loadSandboxEnabled);
-  const [sandboxDraft, setSandboxDraft] = useState<RatioSpec[]>(
-    () => loadSandboxDraft() ?? [],
-  );
-  const uploadSectionRef = useRef<HTMLDivElement>(null);
+  const session = useAnalysisSession();
+  const [activeTab, setActiveTab] = useState<Tab | null>(null);
+  const [amountFormat, setAmountFormat] = useState<AmountFormat>(loadAmountFormat);
+  const [selection, setSelection] = useState<SourceSelection | null>(null);
+  const [sandboxDefaults, setSandboxDefaults] = useState<RatioSpec[] | null>(null);
+
+  const analyzing = session.status === "analyzing";
+  const showResults =
+    Boolean(session.result) &&
+    (session.status === "completed" ||
+      session.status === "analyzing" ||
+      session.status === "error");
 
   useEffect(() => {
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
-
-  useEffect(() => {
-    sessionStorage.setItem(SANDBOX_ENABLED_KEY, sandboxEnabled ? "1" : "0");
-  }, [sandboxEnabled]);
-
-  useEffect(() => {
-    if (sandboxDraft.length > 0) {
-      sessionStorage.setItem(SANDBOX_DRAFT_KEY, JSON.stringify(sandboxDraft));
+    if (session.status === "completed" && session.result && activeTab === null) {
+      setActiveTab("ratios");
     }
-  }, [sandboxDraft]);
+  }, [activeTab, session.result, session.status]);
+
+  useEffect(() => {
+    saveAmountFormat(amountFormat);
+  }, [amountFormat]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getRatiosConfig()
+      .then((specs) => {
+        if (!cancelled) setSandboxDefaults(specs);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const analysisKey = useMemo(
+    () => session.contentHash ?? session.pdfFile?.name ?? "none",
+    [session.contentHash, session.pdfFile],
+  );
+
+  useEffect(() => {
+    setSelection(null);
+  }, [analysisKey]);
 
   function focusUploadZone() {
-    uploadSectionRef.current?.scrollIntoView({
+    document.getElementById("upload-zone")?.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
     document.getElementById("upload-zone")?.focus();
   }
 
-  async function handleUpload(file: File) {
-    setLoading(true);
-    setError(null);
-    try {
-      const override =
-        sandboxEnabled && sandboxDraft.length > 0 ? sandboxDraft : undefined;
-      const data = await analyzePdf(file, override);
-      setResult(data);
-      sessionStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(data));
-
-      setPdfUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return URL.createObjectURL(file);
+  function handleStatementSelect(section: StatementSectionId, code: string) {
+    if (!session.result) return;
+    const entry = findEntry(buildSourceEntries(session.result), section, code);
+    if (entry) {
+      setSelection(selectionForEntry(entry));
+    } else {
+      setSelection({
+        section,
+        code,
+        occurrenceIndex: 0,
+        page: 0,
       });
-      setActiveTab("ratios");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Onbekende fout");
-    } finally {
-      setLoading(false);
     }
+    setActiveTab("pdf_scan");
   }
+
+  function handleSourceSelection(next: SourceSelection) {
+    setSelection(next);
+    setActiveTab(tabForSection(next.section));
+  }
+
+  const readOnly = session.stale || analyzing;
 
   return (
     <div className="min-h-screen">
@@ -119,33 +122,59 @@ function App() {
           <h1 className="text-2xl font-bold text-slate-900">
             Jaarrekening Analyzer
           </h1>
-          {sandboxEnabled && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-200">
-              Sandbox actief
-            </span>
-          )}
+          <SandboxIndicator
+            enabled={session.sandboxEnabled}
+            draft={session.sandboxDraft}
+            defaults={sandboxDefaults}
+            onOpenSandbox={() => setActiveTab("sandbox")}
+          />
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <div ref={uploadSectionRef}>
-          <UploadZone onFile={handleUpload} loading={loading} />
-        </div>
+        <UploadZone onFile={session.startAnalysis} loading={analyzing} />
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
-            {error}
+        {session.cancelMessage && session.status === "canceled" && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            {session.cancelMessage}
+          </div>
+        )}
+
+        {analyzing && (
+          <ProcessingPanel
+            job={session.job}
+            onCancel={() => void session.cancelAnalysis()}
+          />
+        )}
+
+        {session.status === "error" && (
+          <AnalysisErrorCard
+            message={session.error ?? "Analyse mislukt."}
+            stageLabel={session.errorStageLabel}
+            detail={session.errorDetail}
+            hasPrevious={Boolean(session.result)}
+            onRetry={session.pdfFile ? session.retryAnalysis : undefined}
+            onUploadAnother={focusUploadZone}
+          />
+        )}
+
+        {session.stale && session.result && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+            Vorige analyse (alleen-lezen) — nieuwe analyse loopt.
           </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          {TABS.filter((tab) => tab.id === "sandbox" || result).map((tab) => (
+          {TABS.filter(
+            (tab) =>
+              tab.id === "sandbox" || tab.id === "settings" || showResults,
+          ).map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => {
                 if (tab.id === "sandbox" && activeTab === "sandbox") {
-                  setActiveTab(result ? "ratios" : null);
+                  setActiveTab(session.result ? "ratios" : null);
                   return;
                 }
                 setActiveTab(tab.id);
@@ -159,51 +188,62 @@ function App() {
               {tab.label}
             </button>
           ))}
-          {result?.schema_format && (
-            <div className="ml-auto inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-              Model: {result.schema_format}
+          {showResults && (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <AmountFormatToggle
+                value={amountFormat}
+                onChange={setAmountFormat}
+              />
+              {session.result?.schema_format && (
+                <div className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
+                  Model: {session.result.schema_format}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {activeTab === "sandbox" && (
-          <RatioSandbox
-            enabled={sandboxEnabled}
-            onEnabledChange={setSandboxEnabled}
-            draft={sandboxDraft}
-            onDraftChange={setSandboxDraft}
+        {activeTab === "settings" && (
+          <SettingsPanel
+            amountFormat={amountFormat}
+            onAmountFormatChange={setAmountFormat}
           />
         )}
 
-        {result && (
+        {activeTab === "sandbox" && (
+          <RatioSandbox
+            enabled={session.sandboxEnabled}
+            onEnabledChange={session.setSandboxEnabled}
+            draft={session.sandboxDraft}
+            onDraftChange={session.setSandboxDraft}
+          />
+        )}
+
+        {showResults && session.result && (
           <>
-            {result.warnings.length > 0 && activeTab !== "sandbox" && (
-              <div className="space-y-2">
-                {result.warnings.map((warning) => (
-                  <div
-                    key={warning}
-                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
-                  >
-                    {warning}
-                  </div>
-                ))}
+            {session.recomputeError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                Sandbox-herberekening mislukt: {session.recomputeError}
               </div>
             )}
 
+            {activeTab !== "sandbox" && activeTab !== "settings" && (
+              <WarningBanners warnings={session.result.warnings} />
+            )}
+
             {activeTab === "pdf_scan" &&
-              (pdfUrl ? (
-                <PdfHighlightViewer
-                  pdfUrl={pdfUrl}
-                  highlights={result.highlights ?? []}
-                  pageSizes={result.page_sizes ?? []}
-                  pageCount={result.page_count ?? null}
+              (session.pdfUrl ? (
+                <PdfWorkspace
+                  pdfUrl={session.pdfUrl}
+                  result={session.result}
+                  amountFormat={amountFormat}
+                  selection={selection}
+                  onSelectionChange={handleSourceSelection}
+                  analysisKey={analysisKey}
                 />
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  <p>
-                    De analyse blijft bewaard na een refresh, maar het PDF-bestand
-                    zelf niet (privacy / geheugen).
-                  </p>
+                  <p>PDF ontbreekt voor deze analyse.</p>
                   <button
                     type="button"
                     onClick={focusUploadZone}
@@ -217,49 +257,69 @@ function App() {
             {activeTab === "balans_activa" && (
               <StatementTable
                 title="Balans activa"
-                lines={result.balance_assets}
+                lines={session.result.balance_assets}
+                amountFormat={amountFormat}
+                selectedCode={
+                  selection?.section === "balans_activa" ? selection.code : null
+                }
+                onSelectRow={(code) => handleStatementSelect("balans_activa", code)}
+                readOnly={readOnly}
               />
             )}
             {activeTab === "balans_passiva" && (
               <StatementTable
                 title="Balans passiva"
-                lines={result.balance_liabilities}
+                lines={session.result.balance_liabilities}
+                amountFormat={amountFormat}
+                selectedCode={
+                  selection?.section === "balans_passiva" ? selection.code : null
+                }
+                onSelectRow={(code) =>
+                  handleStatementSelect("balans_passiva", code)
+                }
+                readOnly={readOnly}
               />
             )}
             {activeTab === "resultaten" && (
               <StatementTable
                 title="Resultatenrekening"
-                lines={result.income_statement}
+                lines={session.result.income_statement}
+                amountFormat={amountFormat}
+                selectedCode={
+                  selection?.section === "resultatenrekening"
+                    ? selection.code
+                    : null
+                }
+                onSelectRow={(code) =>
+                  handleStatementSelect("resultatenrekening", code)
+                }
+                readOnly={readOnly}
               />
             )}
             {activeTab === "resultaatverwerking" && (
               <StatementTable
                 title="Resultaatverwerking"
-                lines={result.appropriation_of_result ?? []}
+                lines={session.result.appropriation_of_result ?? []}
+                amountFormat={amountFormat}
+                selectedCode={
+                  selection?.section === "resultaatverwerking"
+                    ? selection.code
+                    : null
+                }
+                onSelectRow={(code) =>
+                  handleStatementSelect("resultaatverwerking", code)
+                }
+                readOnly={readOnly}
               />
             )}
             {activeTab === "ratios" && (
               <div className="space-y-6">
-                {(result.validations ?? []).length > 0 && (
-                  <div className="space-y-2">
-                    {result.validations.map((message) => {
-                      const warning = message.includes("WAARSCHUWING");
-                      return (
-                        <div
-                          key={message}
-                          className={`rounded-lg border px-4 py-2 text-sm ${
-                            warning
-                              ? "border-amber-200 bg-amber-50 text-amber-900"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-900"
-                          }`}
-                        >
-                          {message}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <RatioDashboard ratios={result.ratios} />
+                <ValidationPanel validations={session.displayedValidations} />
+                <RatioDashboard
+                  ratios={session.displayedRatios}
+                  updating={session.recomputeState === "updating"}
+                  staleFailure={session.recomputeState === "failed"}
+                />
               </div>
             )}
           </>
