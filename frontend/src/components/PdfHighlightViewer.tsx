@@ -86,6 +86,21 @@ function overlayStyleFor(
   };
 }
 
+function backChipStyleFor(
+  h: ScanHighlight,
+  pageSize: PageSize | undefined,
+): CSSProperties {
+  if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
+    return { display: "none" };
+  }
+  const midY = ((h.top + h.bottom) / 2 / pageSize.height) * 100;
+  return {
+    left: "8px",
+    top: `${midY}%`,
+    transform: "translateY(-50%)",
+  };
+}
+
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -269,6 +284,20 @@ export function PdfHighlightViewer({
 
   const pageSize = pageSizes[pageIndex];
 
+  const selectedHighlight = useMemo(() => {
+    if (!selection) return null;
+    return (
+      pageHighlights.find((h) => {
+        const occ = occurrenceIndexOf(highlights, h);
+        return (
+          selection.section === h.section &&
+          selection.code === h.code &&
+          selection.occurrenceIndex === occ
+        );
+      }) ?? null
+    );
+  }, [selection, pageHighlights, highlights]);
+
   function goToPage(next: number) {
     if (totalPages <= 0) return;
     const clamped = Math.min(totalPages - 1, Math.max(0, next));
@@ -407,59 +436,58 @@ export function PdfHighlightViewer({
         </div>
       </div>
 
-      <div className="flex min-h-0 w-full min-w-0 flex-1">
-        {onBack ? (
-          <button
-            type="button"
-            className="mr-2 inline-flex shrink-0 items-center gap-1 self-start whitespace-nowrap rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
-            onClick={onBack}
-          >
-            <ChevronLeftIcon />
-            {backLabel ?? "Terug"}
-          </button>
-        ) : null}
-        <div
-          ref={viewportRef}
-          className="relative min-h-0 min-w-0 flex-1 overflow-auto rounded-b-lg border border-slate-200 bg-slate-50"
-        >
-          {rendering && (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-white/80 px-3 py-1 text-xs text-slate-500">
-              Pagina laden…
-            </div>
-          )}
-          <div className="relative inline-block min-w-full">
-            <canvas ref={canvasRef} className="block h-auto max-w-none" />
-            <div className="absolute inset-0">
-              {pageHighlights.map((h, index) => {
-                const occ = occurrenceIndexOf(highlights, h);
-                const selected =
-                  selection &&
-                  selection.section === h.section &&
-                  selection.code === h.code &&
-                  selection.occurrenceIndex === occ;
-                const emphasize = selected || !selection;
-                const key = `${h.section}:${h.code}:${occ}:${index}`;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    ref={(node) => {
-                      highlightRefs.current[`${h.section}:${h.code}:${occ}`] = node;
-                    }}
-                    title={`${h.code} (${SECTION_LABELS[h.section] ?? h.section})`}
-                    className={`absolute box-border ${
-                      selected
-                        ? "ring-2 ring-emerald-700 ring-offset-1"
-                        : emphasize
-                          ? "ring-1 ring-black/10"
-                          : "opacity-70"
-                    }`}
-                    style={overlayStyleFor(h, pageSize)}
-                    onClick={() => onSelectHighlight(h, occ)}
-                  />
-                );
-              })}
-            </div>
+      <div
+        ref={viewportRef}
+        className="relative min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-b-lg border border-slate-200 bg-slate-50"
+      >
+        {rendering && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-white/80 px-3 py-1 text-xs text-slate-500">
+            Pagina laden…
+          </div>
+        )}
+        <div className="relative inline-block min-w-full">
+          <canvas ref={canvasRef} className="block h-auto max-w-none" />
+          <div className="absolute inset-0 overflow-visible">
+            {pageHighlights.map((h, index) => {
+              const occ = occurrenceIndexOf(highlights, h);
+              const selected =
+                selection &&
+                selection.section === h.section &&
+                selection.code === h.code &&
+                selection.occurrenceIndex === occ;
+              const emphasize = selected || !selection;
+              const key = `${h.section}:${h.code}:${occ}:${index}`;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  ref={(node) => {
+                    highlightRefs.current[`${h.section}:${h.code}:${occ}`] = node;
+                  }}
+                  title={`${h.code} (${SECTION_LABELS[h.section] ?? h.section})`}
+                  className={`absolute box-border ${
+                    selected
+                      ? "ring-2 ring-emerald-700 ring-offset-1"
+                      : emphasize
+                        ? "ring-1 ring-black/10"
+                        : "opacity-70"
+                  }`}
+                  style={overlayStyleFor(h, pageSize)}
+                  onClick={() => onSelectHighlight(h, occ)}
+                />
+              );
+            })}
+            {onBack && selectedHighlight ? (
+              <button
+                type="button"
+                className="absolute z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
+                style={backChipStyleFor(selectedHighlight, pageSize)}
+                onClick={onBack}
+              >
+                <ChevronLeftIcon />
+                {backLabel ?? "Terug"}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
