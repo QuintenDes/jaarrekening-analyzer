@@ -32,3 +32,8 @@ export function formatRatio(value: number | null, unit: string): string {
   if (unit === "EUR") return `${formatAmount(Math.round(value))} EUR`;
   return value.toFixed(2);
 }
+
+export function formatSignedPercent(change: number): string {
+  const sign = change > 0 ? "+" : "";
+  return `${sign}${change.toFixed(1)}%`;
+}

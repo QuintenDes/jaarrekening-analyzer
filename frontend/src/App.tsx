@@ -3,7 +3,6 @@ import {
   buildSourceEntries,
   findEntry,
   selectionForEntry,
-  tabForSection,
 } from "./analysis/sources";
 import { useAnalysisSession } from "./analysis/useAnalysisSession";
 import { getRatiosConfig } from "./api/client";
@@ -110,7 +109,6 @@ function App() {
 
   function handleSourceSelection(next: SourceSelection) {
     setSelection(next);
-    setActiveTab(tabForSection(next.section));
   }
 
   const readOnly = session.stale || analyzing;
@@ -128,6 +126,14 @@ function App() {
             defaults={sandboxDefaults}
             onOpenSandbox={() => setActiveTab("sandbox")}
           />
+          {showResults && (
+            <div className="ml-auto">
+              <AmountFormatToggle
+                value={amountFormat}
+                onChange={setAmountFormat}
+              />
+            </div>
+          )}
         </div>
       </header>
 
@@ -188,17 +194,9 @@ function App() {
               {tab.label}
             </button>
           ))}
-          {showResults && (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <AmountFormatToggle
-                value={amountFormat}
-                onChange={setAmountFormat}
-              />
-              {session.result?.schema_format && (
-                <div className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-                  Model: {session.result.schema_format}
-                </div>
-              )}
+          {showResults && session.result?.schema_format && (
+            <div className="ml-auto inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
+              Model: {session.result.schema_format}
             </div>
           )}
         </div>
@@ -316,7 +314,10 @@ function App() {
               <div className="space-y-6">
                 <ValidationPanel validations={session.displayedValidations} />
                 <RatioDashboard
+                  key={analysisKey}
+                  result={session.result}
                   ratios={session.displayedRatios}
+                  amountFormat={amountFormat}
                   updating={session.recomputeState === "updating"}
                   staleFailure={session.recomputeState === "failed"}
                 />

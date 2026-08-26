@@ -1,9 +1,19 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { RatioResult } from "../types";
-import { formatRatio } from "../utils/format";
+import { selectKpis, type KpiSelection } from "../analysis/kpis";
+import {
+  keyRatiosForCategory,
+  RATIO_CATEGORY_ORDER,
+  RATIO_VIEWS,
+  ratiosInCategory,
+  type RatioView,
+} from "../analysis/keyRatios";
+import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
+import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
 
 interface RatioDashboardProps {
+  result: AnalysisResult;
   ratios: RatioResult[];
+  amountFormat: AmountFormat;
   updating?: boolean;
   staleFailure?: boolean;
 }
@@ -98,20 +108,124 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
   );
 }
 
+function trendClass(change: number): string {
+  if (Math.abs(change) < 0.05) return "text-slate-500";
+  return change > 0 ? "text-emerald-700" : "text-red-700";
+}
+
+function KpiCard({
+  kpi,
+  amountFormat,
+}: {
+  kpi: KpiSelection;
+  amountFormat: AmountFormat;
+}) {
+  const value = kpi.line?.current ?? null;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-sm text-slate-500">{kpi.label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">
+        {formatAmount(value, amountFormat)}
+      </p>
+      {kpi.change !== null ? (
+        <p className={`mt-2 text-xs ${trendClass(kpi.change)}`}>
+          {formatSignedPercent(kpi.change)} t.o.v. vorig jaar
+        </p>
+      ) : value === null ? (
+        <p className="mt-2 text-xs text-amber-700">Niet beschikbaar</p>
+      ) : (
+        <p className="mt-2 text-xs text-slate-400">Geen vergelijking met vorig jaar</p>
+      )}
+    </div>
+  );
+}
+
+function RatioGrid({
+  items,
+  openFormulaId,
+  onToggle,
+  onClose,
+}: {
+  items: RatioResult[];
+  openFormulaId: string | null;
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((ratio) => (
+        <RatioCard
+          key={ratio.id}
+          ratio={ratio}
+          open={openFormulaId === ratio.id}
+          onToggle={() => onToggle(ratio.id)}
+          onClose={onClose}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategorySection({
+  category,
+  items,
+  onViewAll,
+  openFormulaId,
+  onToggle,
+  onClose,
+}: {
+  category: string;
+  items: RatioResult[];
+  onViewAll?: () => void;
+  openFormulaId: string | null;
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3">
+        <h3 className="font-semibold text-slate-800">{titleCase(category)}</h3>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+          >
+            Bekijk alle →
+          </button>
+        )}
+      </div>
+      <RatioGrid
+        items={items}
+        openFormulaId={openFormulaId}
+        onToggle={onToggle}
+        onClose={onClose}
+      />
+    </div>
+  );
+}
+
 /**
- * Presentational dashboard: groepeert RatioResult[] per category,
- * toont waarde (formatRatio), formule via info-knop en ontbrekende MAR-codes.
+ * Ratio area: dashboard (KPIs + 3 key metrics per category) and
+ * dedicated category views with the full existing list.
  */
 export function RatioDashboard({
+  result,
   ratios,
+  amountFormat,
   updating = false,
   staleFailure = false,
 }: RatioDashboardProps) {
-  const categories = [...new Set(ratios.map((ratio) => ratio.category))];
+  const [view, setView] = useState<RatioView>("dashboard");
   const [openFormulaId, setOpenFormulaId] = useState<string | null>(null);
+  const kpis = selectKpis(result);
 
-  return (
-    <div className="space-y-6">
+  function toggleFormula(id: string) {
+    setOpenFormulaId((current) => (current === id ? null : id));
+  }
+
+  const statusBanners = (
+    <>
       {updating && (
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
           Wordt bijgewerkt
@@ -122,35 +236,70 @@ export function RatioDashboard({
           Deze waarden weerspiegelen niet de laatste sandbox-wijzigingen.
         </p>
       )}
-      {categories.map((category) => (
-        <div
-          key={category}
-          className="rounded-xl border border-slate-200 bg-white shadow-sm"
-        >
-          <div className="border-b border-slate-200 bg-slate-100 px-4 py-3">
-            <h3 className="font-semibold text-slate-800">
-              {titleCase(category)}
-            </h3>
-          </div>
-          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ratios
-              .filter((ratio) => ratio.category === category)
-              .map((ratio) => (
-                <RatioCard
-                  key={ratio.id}
-                  ratio={ratio}
-                  open={openFormulaId === ratio.id}
-                  onToggle={() =>
-                    setOpenFormulaId((current) =>
-                      current === ratio.id ? null : ratio.id,
-                    )
-                  }
-                  onClose={() => setOpenFormulaId(null)}
-                />
+    </>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        {RATIO_VIEWS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setView(item.id);
+              setOpenFormulaId(null);
+            }}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              view === item.id
+                ? "bg-emerald-600 text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {statusBanners}
+
+      {view === "dashboard" ? (
+        <>
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-slate-900">
+              Kerncijfers
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {kpis.map((kpi) => (
+                <KpiCard key={kpi.id} kpi={kpi} amountFormat={amountFormat} />
               ))}
-          </div>
-        </div>
-      ))}
+            </div>
+          </section>
+          {RATIO_CATEGORY_ORDER.map((category) => (
+            <CategorySection
+              key={category}
+              category={category}
+              items={keyRatiosForCategory(ratios, category)}
+              onViewAll={() => {
+                setView(category);
+                setOpenFormulaId(null);
+              }}
+              openFormulaId={openFormulaId}
+              onToggle={toggleFormula}
+              onClose={() => setOpenFormulaId(null)}
+            />
+          ))}
+        </>
+      ) : (
+        <CategorySection
+          category={view}
+          items={ratiosInCategory(ratios, view)}
+          openFormulaId={openFormulaId}
+          onToggle={toggleFormula}
+          onClose={() => setOpenFormulaId(null)}
+        />
+      )}
     </div>
   );
 }
+

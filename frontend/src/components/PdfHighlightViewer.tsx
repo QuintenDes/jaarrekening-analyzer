@@ -58,6 +58,10 @@ function occurrenceIndexOf(
   return group.indexOf(target);
 }
 
+function selectionFitKey(selection: SourceSelection): string {
+  return `${selection.section}:${selection.code}:${selection.occurrenceIndex}:${selection.page}`;
+}
+
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -78,8 +82,13 @@ export function PdfHighlightViewer({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pageInput, setPageInput] = useState("1");
-  const userZoomedRef = useRef(false);
   const lastFitKeyRef = useRef<string | null>(null);
+  const jumpedForPdfRef = useRef<PDFDocumentProxy | null>(null);
+  const renderTaskRef = useRef<RenderTask | null>(null);
+  const pendingScrollRestoreRef = useRef<{ rx: number; ry: number } | null>(
+    null,
+  );
+  const scrolledForKeyRef = useRef<string | null>(null);
 
   const scannedPages = useMemo(() => {
     const pages = [...new Set(highlights.map((h) => h.page))].sort((a, b) => a - b);
@@ -120,9 +129,6 @@ export function PdfHighlightViewer({
     };
   }, [pdfUrl, loadNonce]);
 
-  const jumpedForPdfRef = useRef<PDFDocumentProxy | null>(null);
-  const renderTaskRef = useRef<RenderTask | null>(null);
-
   useEffect(() => {
     if (!pdf) return;
     if (jumpedForPdfRef.current === pdf) return;
@@ -139,14 +145,14 @@ export function PdfHighlightViewer({
 
   useEffect(() => {
     if (!selection) return;
-    if (selection.page !== pageIndex) {
-      setPageIndex(selection.page);
-      setPageInput(String(selection.page + 1));
-    }
-    const fitKey = `${selection.section}:${selection.code}:${selection.occurrenceIndex}:${selection.page}`;
+    setPageIndex(selection.page);
+    setPageInput(String(selection.page + 1));
+  }, [selection]);
+
+  useEffect(() => {
+    if (!selection) return;
+    const fitKey = selectionFitKey(selection);
     if (lastFitKeyRef.current === fitKey) return;
-    lastFitKeyRef.current = fitKey;
-    userZoomedRef.current = false;
 
     const pageSize = pageSizes[selection.page];
     const group = highlights.filter(
@@ -155,19 +161,13 @@ export function PdfHighlightViewer({
     const target = group[selection.occurrenceIndex] ?? group[group.length - 1];
     if (!target || !pageSize || viewportHeight <= 0 || viewportWidth <= 0) return;
 
+    lastFitKeyRef.current = fitKey;
     const highlightH = Math.max(target.bottom - target.top, 8);
     const fitWidth = viewportWidth / pageSize.width;
     const desired = (viewportHeight * 0.38) / highlightH;
     const nextZoom = Math.min(4, Math.max(1, desired / fitWidth));
     setZoom(nextZoom);
-  }, [
-    highlights,
-    pageIndex,
-    pageSizes,
-    selection,
-    viewportHeight,
-    viewportWidth,
-  ]);
+  }, [highlights, pageSizes, selection, viewportHeight, viewportWidth]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -235,11 +235,34 @@ export function PdfHighlightViewer({
   }, [pdf, pageIndex, viewportWidth, zoom]);
 
   useEffect(() => {
-    if (!selection) return;
-    const key = `${selection.section}:${selection.code}:${selection.occurrenceIndex}`;
-    const node = highlightRefs.current[key];
-    node?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-  }, [selection, pageIndex, zoom, rendering]);
+    if (rendering) return;
+    const pending = pendingScrollRestoreRef.current;
+    const el = viewportRef.current;
+    if (!pending || !el) return;
+    pendingScrollRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      el.scrollLeft = pending.rx * el.scrollWidth - el.clientWidth / 2;
+      el.scrollTop = pending.ry * el.scrollHeight - el.clientHeight / 2;
+    });
+  }, [rendering, zoom]);
+
+  useEffect(() => {
+    scrolledForKeyRef.current = null;
+  }, [selection]);
+
+  useEffect(() => {
+    if (!selection || rendering) return;
+    if (pageIndex !== selection.page) return;
+    const key = selectionFitKey(selection);
+    if (scrolledForKeyRef.current === key) return;
+    const node =
+      highlightRefs.current[
+        `${selection.section}:${selection.code}:${selection.occurrenceIndex}`
+      ];
+    if (!node) return;
+    scrolledForKeyRef.current = key;
+    node.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, [selection, pageIndex, rendering]);
 
   const pageSize = pageSizes[pageIndex];
 
@@ -261,6 +284,20 @@ export function PdfHighlightViewer({
     const clamped = Math.min(totalPages - 1, Math.max(0, next));
     setPageIndex(clamped);
     setPageInput(String(clamped + 1));
+  }
+
+  function captureViewportCenter() {
+    const el = viewportRef.current;
+    if (!el || el.scrollWidth <= 0 || el.scrollHeight <= 0) return;
+    pendingScrollRestoreRef.current = {
+      rx: (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth,
+      ry: (el.scrollTop + el.clientHeight / 2) / el.scrollHeight,
+    };
+  }
+
+  function changeZoom(delta: number) {
+    captureViewportCenter();
+    setZoom((z) => Math.min(4, Math.max(0.5, Math.round((z + delta) * 100) / 100)));
   }
 
   if (loadError) {
@@ -334,10 +371,7 @@ export function PdfHighlightViewer({
           <button
             type="button"
             className="rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50"
-            onClick={() => {
-              userZoomedRef.current = true;
-              setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
-            }}
+            onClick={() => changeZoom(-0.25)}
           >
             −
           </button>
@@ -347,10 +381,7 @@ export function PdfHighlightViewer({
           <button
             type="button"
             className="rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50"
-            onClick={() => {
-              userZoomedRef.current = true;
-              setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100));
-            }}
+            onClick={() => changeZoom(0.25)}
           >
             +
           </button>
@@ -380,15 +411,6 @@ export function PdfHighlightViewer({
         )}
         {legend}
       </div>
-
-      {pdf && (
-        <PdfThumbnails
-          pdf={pdf}
-          pages={scannedPages.length > 0 ? scannedPages : [pageIndex]}
-          currentPage={pageIndex}
-          onSelectPage={goToPage}
-        />
-      )}
 
       <div
         ref={viewportRef}
@@ -435,77 +457,5 @@ export function PdfHighlightViewer({
         </div>
       </div>
     </div>
-  );
-}
-
-function PdfThumbnails({
-  pdf,
-  pages,
-  currentPage,
-  onSelectPage,
-}: {
-  pdf: PDFDocumentProxy;
-  pages: number[];
-  currentPage: number;
-  onSelectPage: (page: number) => void;
-}) {
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
-      {pages.map((page) => (
-        <Thumbnail
-          key={page}
-          pdf={pdf}
-          pageIndex={page}
-          active={page === currentPage}
-          onClick={() => onSelectPage(page)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function Thumbnail({
-  pdf,
-  pageIndex,
-  active,
-  onClick,
-}: {
-  pdf: PDFDocumentProxy;
-  pageIndex: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const page = await pdf.getPage(pageIndex + 1);
-      if (cancelled) return;
-      const viewport = page.getViewport({ scale: 0.18 });
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      await page.render({ canvas, canvasContext: context, viewport }).promise;
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdf, pageIndex]);
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`shrink-0 rounded border p-0.5 ${
-        active ? "border-emerald-600 ring-1 ring-emerald-600" : "border-slate-200"
-      }`}
-    >
-      <canvas ref={canvasRef} className="block h-20 w-auto" />
-      <span className="block text-center text-[10px] text-slate-500">{pageIndex + 1}</span>
-    </button>
   );
 }
