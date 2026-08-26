@@ -85,3 +85,35 @@ export function UploadZone({ onFile, loading }: UploadZoneProps) {
     </label>
   );
 }
+
+export function HeaderUploadButton({
+  onFile,
+}: {
+  onFile: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
+      <input
+        id="header-upload-input"
+        ref={inputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file && isPdfFile(file)) onFile(file);
+          event.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+      >
+        Andere PDF
+      </button>
+    </>
+  );
+}

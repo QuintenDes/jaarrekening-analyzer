@@ -6,6 +6,7 @@ import type {
   StatementSectionId,
 } from "../types";
 import { StatementTable } from "./StatementTable";
+import { SubTabs } from "./SubTabs";
 
 export type StatementViewId =
   | "balans_activa"
@@ -70,22 +71,14 @@ export function StatementsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {STATEMENT_VIEWS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setView(item.id)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              view === item.id
-                ? "bg-emerald-600 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <SubTabs
+        items={STATEMENT_VIEWS.map((item) => ({
+          id: item.id,
+          label: item.label,
+        }))}
+        value={view}
+        onChange={setView}
+      />
       <StatementTable
         title={current.label}
         lines={lines}

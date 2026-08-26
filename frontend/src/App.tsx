@@ -16,7 +16,7 @@ import { RatioSandbox } from "./components/RatioSandbox";
 import { SandboxIndicator } from "./components/SandboxIndicator";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { StatementsPanel } from "./components/StatementsPanel";
-import { UploadZone } from "./components/UploadZone";
+import { HeaderUploadButton, UploadZone } from "./components/UploadZone";
 import { ValidationPanel } from "./components/ValidationPanel";
 import { WarningBanners } from "./components/WarningBanners";
 import { loadAmountFormat, saveAmountFormat } from "./persistence/preferences";
@@ -82,12 +82,17 @@ function App() {
     setSelection(null);
   }, [analysisKey]);
 
-  function focusUploadZone() {
-    document.getElementById("upload-zone")?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-    document.getElementById("upload-zone")?.focus();
+  const hasDocument = Boolean(session.result || session.pdfFile);
+
+  function openFilePicker() {
+    const headerInput = document.getElementById(
+      "header-upload-input",
+    ) as HTMLInputElement | null;
+    if (headerInput) {
+      headerInput.click();
+      return;
+    }
+    document.getElementById("upload-zone")?.click();
   }
 
   function handleStatementSelect(section: StatementSectionId, code: string) {
@@ -125,19 +130,24 @@ function App() {
             defaults={sandboxDefaults}
             onOpenSandbox={() => setActiveTab("sandbox")}
           />
-          {showResults && (
-            <div className="ml-auto">
-              <AmountFormatToggle
-                value={amountFormat}
-                onChange={setAmountFormat}
-              />
+          {(hasDocument || showResults) && (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <HeaderUploadButton onFile={session.startAnalysis} />
+              {showResults && (
+                <AmountFormatToggle
+                  value={amountFormat}
+                  onChange={setAmountFormat}
+                />
+              )}
             </div>
           )}
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <UploadZone onFile={session.startAnalysis} loading={analyzing} />
+        {!hasDocument && (
+          <UploadZone onFile={session.startAnalysis} loading={analyzing} />
+        )}
 
         {session.cancelMessage && session.status === "canceled" && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -159,7 +169,7 @@ function App() {
             detail={session.errorDetail}
             hasPrevious={Boolean(session.result)}
             onRetry={session.pdfFile ? session.retryAnalysis : undefined}
-            onUploadAnother={focusUploadZone}
+            onUploadAnother={openFilePicker}
           />
         )}
 
@@ -259,10 +269,10 @@ function App() {
                   <p>PDF ontbreekt voor deze analyse.</p>
                   <button
                     type="button"
-                    onClick={focusUploadZone}
+                    onClick={openFilePicker}
                     className="mt-3 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                   >
-                    Kies opnieuw dezelfde PDF hierboven
+                    Kies opnieuw dezelfde PDF
                   </button>
                 </div>
               ))}

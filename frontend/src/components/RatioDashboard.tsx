@@ -9,6 +9,7 @@ import {
 } from "../analysis/keyRatios";
 import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
 import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
+import { SubTabs } from "./SubTabs";
 
 interface RatioDashboardProps {
   result: AnalysisResult;
@@ -241,25 +242,14 @@ export function RatioDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {RATIO_VIEWS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              setView(item.id);
-              setOpenFormulaId(null);
-            }}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              view === item.id
-                ? "bg-emerald-600 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <SubTabs
+        items={RATIO_VIEWS}
+        value={view}
+        onChange={(id) => {
+          setView(id);
+          setOpenFormulaId(null);
+        }}
+      />
 
       {statusBanners}
 
