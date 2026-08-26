@@ -98,7 +98,7 @@ export function FormulaTokens({
   numerator,
   denominator,
   showLabels = false,
-  stacked = false,
+  stacked = true,
 }: FormulaTokensProps) {
   let top = numerator?.trim() ?? "";
   let bottom = denominator?.trim() ?? "";
@@ -115,9 +115,12 @@ export function FormulaTokens({
   }
   if (stacked) {
     return (
-      <div className="inline-flex flex-col items-center text-slate-700">
+      <div className="inline-flex min-w-0 flex-col items-center text-slate-700">
         <ExpressionTokens text={top} showLabels={showLabels} />
-        <span className="my-0.5 w-full border-t border-slate-300" />
+        <span
+          className="my-1 w-full min-w-[2rem] border-t border-slate-400"
+          aria-hidden="true"
+        />
         <ExpressionTokens text={bottom} showLabels={showLabels} />
       </div>
     );

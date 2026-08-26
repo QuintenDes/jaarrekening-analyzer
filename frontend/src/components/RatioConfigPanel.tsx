@@ -35,6 +35,7 @@ import {
   DownloadIcon,
   EditIcon,
   ImportIcon,
+  PlusIcon,
   ResetIcon,
   SaveIcon,
 } from "./icons";
@@ -419,8 +420,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             ])
           }
           disabled={saving}
-          className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
+          <PlusIcon />
           Toevoegen
         </button>
         <button
@@ -435,7 +437,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
           disabled={exported.length === 0}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
-          <DownloadIcon />
+          <ImportIcon />
           Exporteer YAML
         </button>
         <button
@@ -443,7 +445,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
           onClick={() => setShowImport((value) => !value)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
         >
-          <ImportIcon />
+          <DownloadIcon />
           Importeer YAML
         </button>
         <label className="ml-auto flex h-9 items-center gap-2 text-sm text-slate-700">
@@ -621,11 +623,12 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                               className="w-full min-w-[22rem] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
                             />
                           </td>
-                          <td className="px-4 py-2">
+                          <td className="px-4 py-2 align-middle">
                             <FormulaTokens
                               numerator={spec.numerator}
                               denominator={spec.denominator}
                               showLabels={false}
+                              stacked
                             />
                           </td>
                           <td className="px-4 py-2">

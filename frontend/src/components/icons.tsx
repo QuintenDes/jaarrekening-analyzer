@@ -45,9 +45,9 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
 export function ImportIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
-      <rect x="9" y="3" width="12" height="18" rx="1.5" />
-      <path d="M3 12h8" />
-      <path d="m8 8 4 4-4 4" />
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 20h14" />
     </Icon>
   );
 }

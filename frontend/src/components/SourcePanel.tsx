@@ -87,8 +87,8 @@ export function SourcePanel({
                       <span className="font-medium text-slate-800">
                         {pdfText || "—"}
                       </span>
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="shrink-0 font-mono text-xs text-slate-600">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-slate-800">
                           {entry.code}
                         </span>
                         <span className="shrink-0 font-mono text-xs text-slate-600">
