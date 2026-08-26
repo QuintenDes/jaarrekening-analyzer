@@ -11,25 +11,47 @@ Nieuwe ratio toevoegen = YAML-entry, geen Python-wijziging.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import yaml
 
 from app.mar.aggregator import CodeAggregator
 from app.models.schemas import RatioResult, StatementLine, StructureItem
-
-CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+from app.ratios.store import (
+    load_active_specs,
+    persist_specs,
+    reset_to_bundled,
+)
 
 ALLOWED_SPEC_KEYS = frozenset(
-    {"id", "name", "category", "numerator", "denominator", "multiply", "unit"}
+    {
+        "id",
+        "name",
+        "category",
+        "numerator",
+        "denominator",
+        "multiply",
+        "unit",
+        "enabled",
+    }
 )
 
 
 def load_ratios_config() -> list[dict]:
-    path = CONFIG_DIR / "ratios.yaml"
-    with path.open(encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
-    return data.get("ratios", [])
+    return load_active_specs()
+
+
+def save_ratios_config(
+    specs: list[dict],
+    *,
+    expected_version: int | None = None,
+) -> list[dict]:
+    validated = validate_ratios_config(specs)
+    saved, _meta = persist_specs(validated, expected_version=expected_version)
+    return saved
+
+
+def reset_ratios_config() -> list[dict]:
+    specs, _meta = reset_to_bundled()
+    return specs
 
 
 def parse_ratios_yaml(text: str) -> list[dict]:
@@ -95,6 +117,10 @@ def validate_ratios_config(raw: object) -> list[dict]:
         if isinstance(multiply, bool) or not isinstance(multiply, (int, float)):
             raise ValueError(f"{prefix}.multiply moet een getal zijn.")
 
+        enabled = item.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ValueError(f"{prefix}.enabled moet true of false zijn.")
+
         cleaned: dict = {
             "id": spec_id,
             "name": item["name"].strip(),
@@ -102,6 +128,7 @@ def validate_ratios_config(raw: object) -> list[dict]:
             "numerator": item["numerator"].strip(),
             "unit": unit,
             "multiply": multiply,
+            "enabled": enabled,
         }
         if denominator is not None:
             cleaned["denominator"] = denominator.strip()
@@ -117,6 +144,8 @@ def compute_ratios(
 ) -> list[RatioResult]:
     results: list[RatioResult] = []
     for spec in specs if specs is not None else load_ratios_config():
+        if spec.get("enabled", True) is False:
+            continue
         formula_parts: list[str] = []
         missing: list[str] = []
 

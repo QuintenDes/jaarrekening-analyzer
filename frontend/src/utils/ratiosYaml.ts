@@ -17,6 +17,9 @@ export function ratiosToYaml(ratios: RatioSpec[]): string {
     if (ratio.unit) {
       lines.push(`    unit: ${yamlScalar(ratio.unit)}`);
     }
+    if (ratio.enabled === false) {
+      lines.push("    enabled: false");
+    }
     lines.push("");
   }
   return lines.join("\n").trimEnd() + "\n";
@@ -51,18 +54,20 @@ export function normalizeSpec(spec: Partial<RatioSpec> & Pick<RatioSpec, "id">):
     denominator: spec.denominator || null,
     multiply: spec.multiply ?? 1,
     unit: spec.unit ?? "",
+    enabled: spec.enabled !== false,
   };
 }
 
-export function blankRatioSpec(): RatioSpec {
+export function blankRatioSpec(category = "overig"): RatioSpec {
   const stamp = Date.now().toString(36);
   return {
     id: `ratio_${stamp}`,
     name: "Nieuwe ratio",
-    category: "overig",
+    category,
     numerator: "",
     denominator: null,
     multiply: 1,
     unit: "x",
+    enabled: true,
   };
 }

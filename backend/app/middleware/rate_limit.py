@@ -12,8 +12,16 @@ from starlette.responses import JSONResponse, Response
 
 # Paths that accept heavy / abuse-prone POST bodies.
 LIMITED_PATHS = frozenset(
-    {"/api/analyze", "/api/analyze/jobs", "/api/ratios/parse", "/api/ratios/compute"}
+    {
+        "/api/analyze",
+        "/api/analyze/jobs",
+        "/api/ratios/parse",
+        "/api/ratios/compute",
+        "/api/ratios",
+        "/api/ratios/reset",
+    }
 )
+LIMITED_PREFIXES = ("/api/ratios/history/",)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -31,6 +39,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.paths = paths
+        self.prefixes = LIMITED_PREFIXES
         self._hits: dict[str, deque[float]] = defaultdict(deque)
 
     def _client_ip(self, request: Request) -> str:
@@ -43,7 +52,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return "unknown"
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        if request.method == "POST" and request.url.path in self.paths:
+        path = request.url.path
+        limited = path in self.paths or any(path.startswith(prefix) for prefix in self.prefixes)
+        if request.method in {"POST", "PUT", "DELETE"} and limited:
             ip = self._client_ip(request)
             now = time.monotonic()
             window = self._hits[ip]

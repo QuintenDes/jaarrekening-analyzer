@@ -53,6 +53,14 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
+## Live ratio-configuratie
+
+De gebundelde `backend/config/ratios.yaml` is de standaard. Na de eerste start leeft de actieve configuratie in het override-bestand (`RATIOS_CONFIG_PATH`, in Docker `/data/ratios.yaml` op volume `ratios-data`). Testers wijzigen ratio's in het tabblad **Ratio-configuratie** en klikken **Opslaan**. Dat vereist geen GitHub-edit en geen Docker-rebuild.
+
+Schrijfbewerkingen gebruiken header `X-Admin-Token`. Zet `ADMIN_TOKEN=<random-secret>` in de omgeving (zie `.env.example`). Er is geen standaardtoken.
+
+Sandbox blijft lokaal (browser) en overschrijft de live configuratie niet automatisch.
+
 ## Structuur (nu)
 
 ```

@@ -30,12 +30,25 @@ class RatioSpec(BaseModel):
     denominator: str | None = None
     multiply: float = 1
     unit: str = ""
+    enabled: bool = True
 
 
 class RatiosConfigResponse(BaseModel):
-    """Antwoord van GET /api/ratios — defaults van de server."""
+    """Antwoord van GET /api/ratios — actieve serverconfiguratie."""
 
     ratios: list[RatioSpec]
+    source: str = "bundled"  # bundled | saved
+    version: int = 1
+    updated_at: str | None = None
+
+
+class RatioHistoryEntry(BaseModel):
+    version: int
+    updated_at: str | None = None
+
+
+class RatioHistoryResponse(BaseModel):
+    items: list[RatioHistoryEntry]
 
 
 class RatioResult(BaseModel):

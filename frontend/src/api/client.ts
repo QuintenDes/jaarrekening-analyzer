@@ -3,14 +3,32 @@ import type {
   AnalyzeJobCreated,
   AnalyzeJobStatus,
   RatioComputeResponse,
+  RatioHistoryEntry,
   RatioSpec,
+  RatiosConfigMeta,
   StatementLine,
 } from "../types";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 async function readError(response: Response): Promise<string> {
   const payload = await response.json().catch(() => ({}));
   const detail = payload.detail ?? `Verzoek mislukt (${response.status})`;
   return typeof detail === "string" ? detail : JSON.stringify(detail);
+}
+
+async function throwIfNotOk(response: Response): Promise<void> {
+  if (!response.ok) {
+    throw new ApiError(await readError(response), response.status);
+  }
 }
 
 function appendRatios(form: FormData, ratios?: RatioSpec[]) {
@@ -32,17 +50,13 @@ export async function startAnalyzeJob(
     method: "POST",
     body: form,
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  await throwIfNotOk(response);
   return response.json();
 }
 
 export async function getAnalyzeJob(jobId: string): Promise<AnalyzeJobStatus> {
   const response = await fetch(`/api/analyze/jobs/${jobId}`);
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  await throwIfNotOk(response);
   return response.json();
 }
 
@@ -50,9 +64,7 @@ export async function cancelAnalyzeJob(jobId: string): Promise<AnalyzeJobStatus>
   const response = await fetch(`/api/analyze/jobs/${jobId}`, {
     method: "DELETE",
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  await throwIfNotOk(response);
   return response.json();
 }
 
@@ -69,22 +81,80 @@ export async function analyzePdf(
     method: "POST",
     body: form,
   });
-
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-
+  await throwIfNotOk(response);
   return response.json();
 }
 
-/** Read-only defaults van de server (ratios.yaml). */
 export async function getRatiosConfig(): Promise<RatioSpec[]> {
-  const response = await fetch("/api/ratios");
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  const data = (await response.json()) as { ratios: RatioSpec[] };
+  const data = await getRatiosConfigMeta();
   return data.ratios;
+}
+
+function asConfigMeta(data: {
+  ratios: RatioSpec[];
+  source?: "bundled" | "saved";
+  version?: number;
+  updated_at?: string | null;
+}): RatiosConfigMeta {
+  return {
+    ratios: data.ratios,
+    source: data.source === "saved" ? "saved" : "bundled",
+    version: typeof data.version === "number" ? data.version : 1,
+    updated_at: data.updated_at ?? null,
+  };
+}
+
+export async function getRatiosConfigMeta(): Promise<RatiosConfigMeta> {
+  const response = await fetch("/api/ratios");
+  await throwIfNotOk(response);
+  return asConfigMeta(await response.json());
+}
+
+export async function saveRatiosConfig(
+  ratios: RatioSpec[],
+  adminToken: string,
+  version: number,
+): Promise<RatiosConfigMeta> {
+  const response = await fetch("/api/ratios", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Token": adminToken,
+    },
+    body: JSON.stringify({ ratios, version }),
+  });
+  await throwIfNotOk(response);
+  return asConfigMeta(await response.json());
+}
+
+export async function resetRatiosConfig(
+  adminToken: string,
+): Promise<RatiosConfigMeta> {
+  const response = await fetch("/api/ratios/reset", {
+    method: "POST",
+    headers: { "X-Admin-Token": adminToken },
+  });
+  await throwIfNotOk(response);
+  return asConfigMeta(await response.json());
+}
+
+export async function getRatiosHistory(): Promise<RatioHistoryEntry[]> {
+  const response = await fetch("/api/ratios/history");
+  await throwIfNotOk(response);
+  const data = (await response.json()) as { items?: RatioHistoryEntry[] };
+  return data.items ?? [];
+}
+
+export async function restoreRatiosHistory(
+  version: number,
+  adminToken: string,
+): Promise<RatiosConfigMeta> {
+  const response = await fetch(`/api/ratios/history/${version}/restore`, {
+    method: "POST",
+    headers: { "X-Admin-Token": adminToken },
+  });
+  await throwIfNotOk(response);
+  return asConfigMeta(await response.json());
 }
 
 /** Parse YAML-tekst naar gevalideerde ratio-specs (geen schijfschrijven). */
@@ -94,9 +164,7 @@ export async function parseRatiosYaml(yamlText: string): Promise<RatioSpec[]> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ yaml: yamlText }),
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  await throwIfNotOk(response);
   const data = (await response.json()) as { ratios: RatioSpec[] };
   return data.ratios;
 }
@@ -112,8 +180,6 @@ export async function computeRatios(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  await throwIfNotOk(response);
   return response.json();
 }

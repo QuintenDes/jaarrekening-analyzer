@@ -17,6 +17,19 @@ export interface RatioSpec {
   denominator?: string | null;
   multiply?: number;
   unit?: string;
+  enabled?: boolean;
+}
+
+export interface RatiosConfigMeta {
+  ratios: RatioSpec[];
+  source: "bundled" | "saved";
+  version: number;
+  updated_at: string | null;
+}
+
+export interface RatioHistoryEntry {
+  version: number;
+  updated_at: string | null;
 }
 
 /** Eén berekende ratio (spiegel van backend RatioResult). */
@@ -139,4 +152,5 @@ export type Tab =
   | "resultaatverwerking"
   | "ratios"
   | "sandbox"
+  | "ratio_config"
   | "settings";

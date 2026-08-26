@@ -363,6 +363,13 @@ export function useAnalysisSession() {
     [runRecompute, sandboxEnabled, stale, status],
   );
 
+  const refreshLiveRatios = useCallback(() => {
+    if (sandboxEnabled) return;
+    if (status === "completed" && !stale && resultRef.current) {
+      runRecompute(sandboxDraft, false, resultRef.current);
+    }
+  }, [runRecompute, sandboxDraft, sandboxEnabled, stale, status]);
+
   const displayedRatios = overlayRatios ?? result?.ratios ?? [];
   const displayedValidations = overlayValidations ?? result?.validations ?? [];
 
@@ -386,6 +393,7 @@ export function useAnalysisSession() {
     sandboxDraft,
     setSandboxEnabled: setSandboxEnabledAndMaybeRecompute,
     setSandboxDraft: setSandboxDraftAndMaybeRecompute,
+    refreshLiveRatios,
     recomputeState,
     recomputeError,
     displayedRatios,

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import secrets
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from app.models.schemas import (
     AnalysisResult,
@@ -14,10 +16,22 @@ from app.models.schemas import (
     AnalyzeJobStatus,
     RatioComputeRequest,
     RatioComputeResponse,
+    RatioHistoryResponse,
     RatioSpec,
     RatiosConfigResponse,
 )
-from app.ratios.engine import load_ratios_config, parse_ratios_yaml, validate_ratios_config
+from app.ratios.engine import (
+    parse_ratios_yaml,
+    validate_ratios_config,
+)
+from app.ratios.store import (
+    StaleConfigError,
+    config_fields,
+    list_history,
+    persist_specs,
+    reset_to_bundled,
+    restore_history,
+)
 from app.services.analyzer import analyze_pdf, compute_from_statements
 from app.services.jobs import job_to_payload, run_analysis_job, store
 
@@ -29,6 +43,45 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 PDF_MAGIC = b"%PDF"
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="analyze-job")
+
+
+def _admin_token() -> str | None:
+    raw = os.environ.get("ADMIN_TOKEN")
+    if raw is None:
+        return None
+    token = raw.strip()
+    return token or None
+
+
+def _require_admin(x_admin_token: str | None) -> None:
+    expected = _admin_token()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="ADMIN_TOKEN is niet geconfigureerd. Schrijfbewerkingen zijn uitgeschakeld.",
+        )
+    provided = (x_admin_token or "").strip()
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Ongeldig admin-wachtwoord.")
+
+
+def _ratios_response(specs: list[dict] | None = None) -> RatiosConfigResponse:
+    fields = config_fields(specs)
+    return RatiosConfigResponse(
+        ratios=[RatioSpec.model_validate(spec) for spec in fields["ratios"]],
+        source=fields["source"],
+        version=fields["version"],
+        updated_at=fields["updated_at"],
+    )
+
+
+def _stale_conflict(exc: StaleConfigError) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail=(
+            "De configuratie is gewijzigd. Laad opnieuw voordat je opslaat."
+        ),
+    )
 
 
 def _parse_ratio_form(ratios: str | None) -> list[dict] | None:
@@ -74,9 +127,90 @@ def health() -> dict[str, str]:
 
 @router.get("/ratios", response_model=RatiosConfigResponse)
 def get_ratios() -> RatiosConfigResponse:
-    """Read-only defaults from ratios.yaml (never mutated by the API)."""
-    specs = load_ratios_config()
-    return RatiosConfigResponse(ratios=[RatioSpec.model_validate(spec) for spec in specs])
+    """Active live config: saved override if present, otherwise bundled ratios.yaml."""
+    return _ratios_response()
+
+
+@router.put("/ratios", response_model=RatiosConfigResponse)
+def put_ratios(
+    body: RatiosConfigResponse,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> RatiosConfigResponse:
+    """Persist ratio specs as the server live configuration (admin)."""
+    _require_admin(x_admin_token)
+    try:
+        specs = validate_ratios_config(
+            [spec.model_dump(exclude_none=True) for spec in body.ratios]
+        )
+        saved, _meta = persist_specs(specs, expected_version=body.version)
+    except StaleConfigError as exc:
+        raise _stale_conflict(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to save ratios config")
+        raise HTTPException(
+            status_code=500, detail="Opslaan op de server mislukt."
+        ) from exc
+    return _ratios_response(saved)
+
+
+def _reset_ratios() -> RatiosConfigResponse:
+    try:
+        specs, _meta = reset_to_bundled()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to reset ratios config")
+        raise HTTPException(
+            status_code=500, detail="Herstellen van standaarddefinities mislukt."
+        ) from exc
+    return _ratios_response(specs)
+
+
+@router.delete("/ratios", response_model=RatiosConfigResponse)
+def delete_saved_ratios(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> RatiosConfigResponse:
+    """Reset live configuration to bundled ratios.yaml (admin)."""
+    _require_admin(x_admin_token)
+    return _reset_ratios()
+
+
+@router.post("/ratios/reset", response_model=RatiosConfigResponse)
+def post_reset_ratios(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> RatiosConfigResponse:
+    """Reset live configuration to bundled ratios.yaml (admin)."""
+    _require_admin(x_admin_token)
+    return _reset_ratios()
+
+
+@router.get("/ratios/history", response_model=RatioHistoryResponse)
+def get_ratios_history() -> RatioHistoryResponse:
+    return RatioHistoryResponse(items=list_history())
+
+
+@router.post("/ratios/history/{version}/restore", response_model=RatiosConfigResponse)
+def restore_ratios_history(
+    version: int,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> RatiosConfigResponse:
+    _require_admin(x_admin_token)
+    try:
+        specs, _meta = restore_history(version)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StaleConfigError as exc:
+        raise _stale_conflict(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to restore ratios history")
+        raise HTTPException(
+            status_code=500, detail="Terugzetten van snapshot mislukt."
+        ) from exc
+    return _ratios_response(specs)
 
 
 @router.post("/ratios/parse", response_model=RatiosConfigResponse)

@@ -10,6 +10,7 @@ import { AmountFormatToggle } from "./components/AmountFormatToggle";
 import { AnalysisErrorCard } from "./components/AnalysisErrorCard";
 import { PdfWorkspace } from "./components/PdfWorkspace";
 import { ProcessingPanel } from "./components/ProcessingPanel";
+import { RatioConfigPanel } from "./components/RatioConfigPanel";
 import { RatioDashboard } from "./components/RatioDashboard";
 import { RatioSandbox } from "./components/RatioSandbox";
 import { SandboxIndicator } from "./components/SandboxIndicator";
@@ -35,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "resultaten", label: "Resultatenrekening" },
   { id: "resultaatverwerking", label: "Resultaatverwerking" },
   { id: "pdf_scan", label: "PDF scan" },
+  { id: "ratio_config", label: "Ratio-configuratie" },
   { id: "settings", label: "Instellingen" },
 ];
 
@@ -173,7 +175,10 @@ function App() {
         <div className="flex flex-wrap items-center gap-2">
           {TABS.filter(
             (tab) =>
-              tab.id === "sandbox" || tab.id === "settings" || showResults,
+              tab.id === "sandbox" ||
+              tab.id === "settings" ||
+              tab.id === "ratio_config" ||
+              showResults,
           ).map((tab) => (
             <button
               key={tab.id}
@@ -208,6 +213,17 @@ function App() {
           />
         )}
 
+        {activeTab === "ratio_config" && (
+          <RatioConfigPanel
+            onLiveConfigApplied={() => {
+              session.refreshLiveRatios();
+              void getRatiosConfig()
+                .then((specs) => setSandboxDefaults(specs))
+                .catch(() => undefined);
+            }}
+          />
+        )}
+
         {activeTab === "sandbox" && (
           <RatioSandbox
             enabled={session.sandboxEnabled}
@@ -221,11 +237,13 @@ function App() {
           <>
             {session.recomputeError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                Sandbox-herberekening mislukt: {session.recomputeError}
+                Herberekening mislukt: {session.recomputeError}
               </div>
             )}
 
-            {activeTab !== "sandbox" && activeTab !== "settings" && (
+            {activeTab !== "sandbox" &&
+              activeTab !== "settings" &&
+              activeTab !== "ratio_config" && (
               <WarningBanners warnings={session.result.warnings} />
             )}
 

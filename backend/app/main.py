@@ -1,12 +1,28 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.ratios.store import seed_if_missing
 
-app = FastAPI(title="Jaarrekening Analyzer", version="1.0.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    seed_if_missing()
+    if not os.environ.get("ADMIN_TOKEN", "").strip():
+        logger.warning(
+            "ADMIN_TOKEN is not set; live ratio configuration writes are disabled."
+        )
+    yield
+
+
+app = FastAPI(title="Jaarrekening Analyzer", version="1.0.0", lifespan=lifespan)
 
 # Dev: Vite on :5173. Prod: same-origin via Caddy; CORS_ORIGINS overrides defaults.
 _default_origins = "http://localhost:5173,http://127.0.0.1:5173"

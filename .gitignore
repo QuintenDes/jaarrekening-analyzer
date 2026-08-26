@@ -16,11 +16,8 @@ dist/
 dist-ssr/
 *.tsbuildinfo
 
-# Logs & local env
-*.log
-.env
-.env.*
-*.local
+# Local persisted ratio overrides (admin save)
+backend/data/
 
 # OS & editors
 .DS_Store
@@ -37,8 +34,14 @@ Thumbs.db
 # Local git hooks (niet op GitHub)
 .githooks/
 
-# Tests (worden lokaal gebruikt)
-backend/tests/
+# Tests (lokaal, behalve tracked ratio-config tests)
+backend/tests/*
+!backend/tests/test_ratio_config.py
+
+# Secrets
+.env
+.env.*
+!.env.example
 
 # Docker / local server deploy (niet op GitHub)
 Dockerfile
