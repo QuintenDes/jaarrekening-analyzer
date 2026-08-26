@@ -1,0 +1,216 @@
+tables:
+  - id: cashflow
+    type: cashflow
+    model_scope:
+      - full
+      - verkort
+      - micro
+    columns:
+      - id: code
+        label: Code
+      - id: boekjaar
+        label: Boekjaar
+      - id: vorig
+        label: Vorig boekjaar
+    rows:
+      - id: cf-operating
+        label: Operationele activiteiten
+        cells: ["", "", ""]
+      - id: cf-operating-result
+        label: Bedrijfsresultaat
+        cells: ["", "", ""]
+      - id: cf-depreciation
+        label: Afschrijvingen
+        cells: ["", "", ""]
+      - id: cf-working-capital
+        label: Wijziging werkkapitaal
+        cells: ["", "", ""]
+      - id: cf-operating-total
+        label: Cashflow uit operationele activiteiten
+        cells: ["", "", ""]
+      - id: cf-investing
+        label: Investeringsactiviteiten
+        cells: ["", "", ""]
+      - id: cf-capex
+        label: Investeringen in vaste activa
+        cells: ["", "", ""]
+      - id: cf-investing-total
+        label: Cashflow uit investeringsactiviteiten
+        cells: ["", "", ""]
+      - id: cf-financing
+        label: Financieringsactiviteiten
+        cells: ["", "", ""]
+      - id: cf-financing-items
+        label: Kapitaal- en schuldfinanciering
+        cells: ["", "", ""]
+      - id: cf-financing-total
+        label: Cashflow uit financieringsactiviteiten
+        cells: ["", "", ""]
+      - id: cf-net-change
+        label: Netto wijziging liquide middelen
+        cells: ["", "", ""]
+      - id: cf-cash-open
+        label: Liquide middelen begin boekjaar
+        cells: ["", "", ""]
+      - id: cf-cash-close
+        label: Liquide middelen einde boekjaar
+        cells: ["", "", ""]
+
+  - id: herwerkte_balans
+    type: herwerkte_balans
+    model_scope:
+      - full
+      - verkort
+      - micro
+    columns:
+      - id: code
+        label: Code
+      - id: boekjaar
+        label: Boekjaar
+      - id: vorig
+        label: Vorig boekjaar
+    rows:
+      - id: bs-fixed
+        label: Vaste activa
+        cells: ["20/28", "", ""]
+      - id: bs-formation
+        label: Oprichtingskosten
+        cells: ["20", "", ""]
+      - id: bs-intangible
+        label: Immateriële vaste activa
+        cells: ["21", "", ""]
+      - id: bs-tangible
+        label: Materiële vaste activa
+        cells: ["22/27", "", ""]
+      - id: bs-financial-fixed
+        label: Financiële vaste activa
+        cells: ["28", "", ""]
+      - id: bs-current
+        label: Vlottende activa
+        cells: ["29/58", "", ""]
+      - id: bs-inventories
+        label: Voorraden en bestellingen in uitvoering
+        cells: ["3", "", ""]
+      - id: bs-receivables
+        label: Vorderingen op ten hoogste één jaar
+        cells: ["40/41", "", ""]
+      - id: bs-investments
+        label: Geldbeleggingen
+        cells: ["50/53", "", ""]
+      - id: bs-cash
+        label: Liquide middelen
+        cells: ["54/58", "", ""]
+      - id: bs-accruals-assets
+        label: Overlopende rekeningen
+        cells: ["490/1", "", ""]
+      - id: bs-total-assets
+        label: Totaal der activa
+        cells: ["20/58", "", ""]
+      - id: bs-equity
+        label: Eigen vermogen
+        cells: ["10/15", "", ""]
+      - id: bs-capital
+        label: Kapitaal
+        cells: ["10", "", ""]
+      - id: bs-reserves
+        label: Reserves
+        cells: ["13", "", ""]
+      - id: bs-retained
+        label: Overgedragen winst (verlies)
+        cells: ["14", "", ""]
+      - id: bs-provisions
+        label: Voorzieningen en uitgestelde belastingen
+        cells: ["16", "", ""]
+      - id: bs-liabilities
+        label: Schulden
+        cells: ["17/49", "", ""]
+      - id: bs-lt-debt
+        label: Schulden op meer dan één jaar
+        cells: ["17", "", ""]
+      - id: bs-st-debt
+        label: Schulden op ten hoogste één jaar
+        cells: ["42/48", "", ""]
+      - id: bs-total-liabilities
+        label: Totaal der passiva
+        cells: ["10/49", "", ""]
+
+  - id: herwerkte_resultatenrekening_full
+    type: herwerkte_resultatenrekening
+    model_scope:
+      - full
+    columns:
+      - id: code
+        label: Code
+      - id: boekjaar
+        label: Boekjaar
+      - id: vorig
+        label: Vorig boekjaar
+    rows:
+      - id: isf-operating-income
+        label: Bedrijfsopbrengsten
+        cells: ["70/76A", "", ""]
+      - id: isf-operating-charges
+        label: Bedrijfskosten
+        cells: ["60/66A", "", ""]
+      - id: isf-operating-result
+        label: Bedrijfsresultaat
+        cells: ["9901", "", ""]
+      - id: isf-financial-income
+        label: Financiële opbrengsten
+        cells: ["75/76B", "", ""]
+      - id: isf-financial-charges
+        label: Financiële kosten
+        cells: ["65/66B", "", ""]
+      - id: isf-before-tax
+        label: Winst (verlies) van het boekjaar vóór belasting
+        cells: ["9903", "", ""]
+      - id: isf-taxes
+        label: Belastingen op het resultaat
+        cells: ["67/77", "", ""]
+      - id: isf-profit
+        label: Winst (verlies) van het boekjaar
+        cells: ["9904", "", ""]
+      - id: isf-appropriable
+        label: Te bestemmen winst (verlies) van het boekjaar
+        cells: ["9905", "", ""]
+
+  - id: herwerkte_resultatenrekening_verkort_micro
+    type: herwerkte_resultatenrekening
+    model_scope:
+      - verkort
+      - micro
+    columns:
+      - id: code
+        label: Code
+      - id: boekjaar
+        label: Boekjaar
+      - id: vorig
+        label: Vorig boekjaar
+    rows:
+      - id: isv-turnover
+        label: Omzet
+        cells: ["70", "", ""]
+      - id: isv-gross-margin
+        label: Brutomarge
+        cells: ["9900", "", ""]
+      - id: isv-operating-result
+        label: Bedrijfsresultaat
+        cells: ["9901", "", ""]
+      - id: isv-financial-income
+        label: Financiële opbrengsten
+        cells: ["75", "", ""]
+      - id: isv-financial-charges
+        label: Financiële kosten
+        cells: ["65", "", ""]
+      - id: isv-before-tax
+        label: Winst (verlies) van het boekjaar vóór belasting
+        cells: ["9903", "", ""]
+      - id: isv-taxes
+        label: Belastingen op het resultaat
+        cells: ["67", "", ""]
+      - id: isv-profit
+        label: Winst (verlies) van het boekjaar
+        cells: ["9904", "", ""]
+      - id: isv-appropriable
+        label: Te bestemmen winst (verlies) van het boekjaar
+        cells: ["9905", "", ""]

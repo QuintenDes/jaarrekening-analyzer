@@ -7,6 +7,8 @@ import type {
   RatioSpec,
   RatiosConfigMeta,
   StatementLine,
+  TableHistoryEntry,
+  TablesConfigMeta,
 } from "../types";
 
 export class ApiError extends Error {
@@ -207,4 +209,71 @@ export async function computeRatios(payload: {
   });
   await throwIfNotOk(response);
   return response.json();
+}
+
+function asTablesConfigMeta(data: {
+  tables: TablesConfigMeta["tables"];
+  source?: "bundled" | "saved";
+  version?: number;
+  updated_at?: string | null;
+}): TablesConfigMeta {
+  return {
+    tables: Array.isArray(data.tables) ? data.tables : [],
+    source: data.source === "saved" ? "saved" : "bundled",
+    version: typeof data.version === "number" ? data.version : 1,
+    updated_at: data.updated_at ?? null,
+  };
+}
+
+export async function getTablesConfig(): Promise<TablesConfigMeta> {
+  const response = await fetch("/api/tables");
+  await throwIfNotOk(response);
+  return asTablesConfigMeta(await response.json());
+}
+
+export async function saveTablesConfig(
+  tables: TablesConfigMeta["tables"],
+  adminToken: string,
+  version: number,
+): Promise<TablesConfigMeta> {
+  const response = await fetch("/api/tables", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Token": adminToken,
+    },
+    body: JSON.stringify({ tables, version }),
+  });
+  await throwIfNotOk(response);
+  return asTablesConfigMeta(await response.json());
+}
+
+export async function resetTablesConfig(
+  adminToken: string,
+): Promise<TablesConfigMeta> {
+  const response = await fetch("/api/tables/reset", {
+    method: "POST",
+    headers: { "X-Admin-Token": adminToken },
+  });
+  await throwIfNotOk(response);
+  return asTablesConfigMeta(await response.json());
+}
+
+export async function getTablesHistory(): Promise<TableHistoryEntry[]> {
+  const response = await fetch("/api/tables/history");
+  await throwIfNotOk(response);
+  const data = (await response.json()) as { items?: TableHistoryEntry[] };
+  return data.items ?? [];
+}
+
+export async function restoreTablesHistory(
+  version: number,
+  adminToken: string,
+): Promise<TablesConfigMeta> {
+  const response = await fetch(`/api/tables/history/${version}/restore`, {
+    method: "POST",
+    headers: { "X-Admin-Token": adminToken },
+  });
+  await throwIfNotOk(response);
+  return asTablesConfigMeta(await response.json());
 }

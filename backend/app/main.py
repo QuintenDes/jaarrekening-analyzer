@@ -7,17 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.ratios.store import seed_if_missing
+from app.ratios.store import seed_if_missing as seed_ratios_if_missing
+from app.tables.store import seed_if_missing as seed_tables_if_missing
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    seed_if_missing()
+    seed_ratios_if_missing()
+    seed_tables_if_missing()
     if not os.environ.get("ADMIN_TOKEN", "").strip():
         logger.warning(
-            "ADMIN_TOKEN is not set; live ratio configuration writes are disabled."
+            "ADMIN_TOKEN is not set; live configuration writes are disabled."
         )
     yield
 

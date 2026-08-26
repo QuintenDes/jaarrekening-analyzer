@@ -12,6 +12,7 @@ import { ProcessingPanel } from "./components/ProcessingPanel";
 import { RatioConfigPanel } from "./components/RatioConfigPanel";
 import { RatioDashboard } from "./components/RatioDashboard";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { TableConfigPanel } from "./components/TableConfigPanel";
 import {
   StatementsPanel,
   type StatementViewId,
@@ -33,6 +34,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "tables", label: "Jaarrekening" },
   { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
+  { id: "tabellen", label: "Tabellen" },
   { id: "settings", label: "Instellingen" },
 ];
 
@@ -45,6 +47,7 @@ function App() {
     useState<StatementViewId>("balans_activa");
   const [pdfReturnTo, setPdfReturnTo] = useState<Tab | null>(null);
   const [ratioView, setRatioView] = useState("liquiditeit");
+  const [tabellenDirty, setTabellenDirty] = useState(false);
 
   const analyzing = session.status === "analyzing";
   const showResults =
@@ -188,12 +191,23 @@ function App() {
             (tab) =>
               tab.id === "settings" ||
               tab.id === "ratio_config" ||
+              tab.id === "tabellen" ||
               showResults,
           ).map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => {
+                if (
+                  activeTab === "tabellen" &&
+                  tab.id !== "tabellen" &&
+                  tabellenDirty &&
+                  !window.confirm(
+                    "Er zijn niet-opgeslagen wijzigingen in Tabellen. Als je deze tab verlaat, gaan ze verloren. Doorgaan?",
+                  )
+                ) {
+                  return;
+                }
                 if (tab.id !== "pdf_scan") {
                   setPdfReturnTo(null);
                 }
@@ -230,6 +244,10 @@ function App() {
           />
         )}
 
+        {activeTab === "tabellen" && (
+          <TableConfigPanel onDirtyChange={setTabellenDirty} />
+        )}
+
         {showResults && session.result && (
           <div
             className={
@@ -245,7 +263,8 @@ function App() {
             )}
 
             {activeTab !== "settings" &&
-              activeTab !== "ratio_config" && (
+              activeTab !== "ratio_config" &&
+              activeTab !== "tabellen" && (
               <WarningBanners warnings={session.result.warnings} />
             )}
 

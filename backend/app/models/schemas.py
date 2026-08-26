@@ -6,6 +6,8 @@ Bedragen zijn hele euro's (integers), niet centen — zoals in de NBB-PDF.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -52,6 +54,49 @@ class RatioHistoryEntry(BaseModel):
 
 class RatioHistoryResponse(BaseModel):
     items: list[RatioHistoryEntry]
+
+
+TableType = Literal["cashflow", "herwerkte_balans", "herwerkte_resultatenrekening"]
+ModelKind = Literal["full", "verkort", "micro"]
+
+
+class TableColumn(BaseModel):
+    id: str
+    label: str = ""
+
+
+class TableRow(BaseModel):
+    id: str
+    label: str = ""
+    cells: list[str] = Field(default_factory=list)
+
+
+class FinancialTableConfig(BaseModel):
+    """Eén configureerbare financiële tabel (Cashflow / herwerkte staten)."""
+
+    id: str
+    type: TableType
+    model_scope: list[ModelKind]
+    columns: list[TableColumn]
+    rows: list[TableRow]
+
+
+class TablesConfigResponse(BaseModel):
+    """Antwoord van GET /api/tables — actieve tabelconfiguratie."""
+
+    tables: list[FinancialTableConfig]
+    source: str = "bundled"  # bundled | saved
+    version: int = 1
+    updated_at: str | None = None
+
+
+class TableHistoryEntry(BaseModel):
+    version: int
+    updated_at: str | None = None
+
+
+class TableHistoryResponse(BaseModel):
+    items: list[TableHistoryEntry]
 
 
 class RatioResult(BaseModel):

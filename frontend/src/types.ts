@@ -35,6 +35,49 @@ export interface RatioHistoryEntry {
   updated_at: string | null;
 }
 
+export type TableType =
+  | "cashflow"
+  | "herwerkte_balans"
+  | "herwerkte_resultatenrekening";
+
+export type ModelKind = "full" | "verkort" | "micro";
+
+export interface TableColumn {
+  id: string;
+  label: string;
+}
+
+export interface TableRow {
+  id: string;
+  label: string;
+  cells: string[];
+}
+
+export interface FinancialTableConfig {
+  id: string;
+  type: TableType;
+  model_scope: ModelKind[];
+  columns: TableColumn[];
+  rows: TableRow[];
+}
+
+export interface TablesConfigMeta {
+  tables: FinancialTableConfig[];
+  source: "bundled" | "saved";
+  version: number;
+  updated_at: string | null;
+}
+
+export interface TableHistoryEntry {
+  version: number;
+  updated_at: string | null;
+}
+
+export type TabellenViewId =
+  | "cashflow"
+  | "herwerkte_balans"
+  | "herwerkte_resultatenrekening";
+
 /** Eén berekende ratio (spiegel van backend RatioResult). */
 export interface RatioResult {
   id: string;
@@ -154,4 +197,5 @@ export type Tab =
   | "tables"
   | "ratios"
   | "ratio_config"
+  | "tabellen"
   | "settings";

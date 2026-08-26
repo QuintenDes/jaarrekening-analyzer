@@ -14,11 +14,14 @@ from app.models.schemas import (
     AnalysisResult,
     AnalyzeJobCreated,
     AnalyzeJobStatus,
+    FinancialTableConfig,
     RatioComputeRequest,
     RatioComputeResponse,
     RatioHistoryResponse,
     RatioSpec,
     RatiosConfigResponse,
+    TableHistoryResponse,
+    TablesConfigResponse,
 )
 from app.ratios.engine import (
     parse_ratios_document_extras,
@@ -33,6 +36,14 @@ from app.ratios.store import (
     reset_to_bundled,
     restore_history,
 )
+from app.tables.store import (
+    config_fields as tables_config_fields,
+    list_history as list_tables_history,
+    persist_tables,
+    reset_to_bundled as reset_tables_to_bundled,
+    restore_history as restore_tables_history,
+)
+from app.tables.validate import validate_tables_config
 from app.services.analyzer import analyze_pdf, compute_from_statements
 from app.services.jobs import job_to_payload, run_analysis_job, store
 
@@ -64,6 +75,16 @@ def _require_admin(x_admin_token: str | None) -> None:
     provided = (x_admin_token or "").strip()
     if not provided or not secrets.compare_digest(provided, expected):
         raise HTTPException(status_code=401, detail="Ongeldig admin-wachtwoord.")
+
+
+def _tables_response(tables: list[dict] | None = None) -> TablesConfigResponse:
+    fields = tables_config_fields(tables)
+    return TablesConfigResponse(
+        tables=[FinancialTableConfig.model_validate(item) for item in fields["tables"]],
+        source=fields["source"],
+        version=fields["version"],
+        updated_at=fields["updated_at"],
+    )
 
 
 def _ratios_response(specs: list[dict] | None = None) -> RatiosConfigResponse:
@@ -221,6 +242,85 @@ def restore_ratios_history(
             status_code=500, detail="Terugzetten van snapshot mislukt."
         ) from exc
     return _ratios_response(specs)
+
+
+@router.get("/tables", response_model=TablesConfigResponse)
+def get_tables() -> TablesConfigResponse:
+    """Active live table config: saved override if present, otherwise bundled tables.yaml."""
+    return _tables_response()
+
+
+@router.put("/tables", response_model=TablesConfigResponse)
+def put_tables(
+    body: TablesConfigResponse,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> TablesConfigResponse:
+    """Persist table configs as the server live configuration (admin)."""
+    _require_admin(x_admin_token)
+    try:
+        tables = validate_tables_config(
+            [item.model_dump() for item in body.tables]
+        )
+        saved, _meta = persist_tables(tables, expected_version=body.version)
+    except StaleConfigError as exc:
+        raise _stale_conflict(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to save tables config")
+        raise HTTPException(
+            status_code=500, detail="Opslaan op de server mislukt."
+        ) from exc
+    return _tables_response(saved)
+
+
+def _reset_tables() -> TablesConfigResponse:
+    try:
+        tables, _meta = reset_tables_to_bundled()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to reset tables config")
+        raise HTTPException(
+            status_code=500, detail="Herstellen van standaarddefinities mislukt."
+        ) from exc
+    return _tables_response(tables)
+
+
+@router.post("/tables/reset", response_model=TablesConfigResponse)
+def post_reset_tables(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> TablesConfigResponse:
+    """Reset live table configuration to bundled tables.yaml (admin)."""
+    _require_admin(x_admin_token)
+    return _reset_tables()
+
+
+@router.get("/tables/history", response_model=TableHistoryResponse)
+def get_tables_history() -> TableHistoryResponse:
+    return TableHistoryResponse(items=list_tables_history())
+
+
+@router.post("/tables/history/{version}/restore", response_model=TablesConfigResponse)
+def restore_tables_history_endpoint(
+    version: int,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> TablesConfigResponse:
+    _require_admin(x_admin_token)
+    try:
+        tables, _meta = restore_tables_history(version)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StaleConfigError as exc:
+        raise _stale_conflict(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("Failed to restore tables history")
+        raise HTTPException(
+            status_code=500, detail="Terugzetten van snapshot mislukt."
+        ) from exc
+    return _tables_response(tables)
 
 
 @router.post("/ratios/parse", response_model=RatiosConfigResponse)

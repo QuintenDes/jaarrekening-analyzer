@@ -19,9 +19,11 @@ LIMITED_PATHS = frozenset(
         "/api/ratios/compute",
         "/api/ratios",
         "/api/ratios/reset",
+        "/api/tables",
+        "/api/tables/reset",
     }
 )
-LIMITED_PREFIXES = ("/api/ratios/history/",)
+LIMITED_PREFIXES = ("/api/ratios/history/", "/api/tables/history/")
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
