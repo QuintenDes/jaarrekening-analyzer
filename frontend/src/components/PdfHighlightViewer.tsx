@@ -246,15 +246,6 @@ export function PdfHighlightViewer({
   }, [selection, pageIndex, rendering]);
 
   const pageSize = pageSizes[pageIndex];
-  const selectedHighlight = pageHighlights.find((h) => {
-    if (!selection) return false;
-    const occ = occurrenceIndexOf(highlights, h);
-    return (
-      selection.section === h.section &&
-      selection.code === h.code &&
-      selection.occurrenceIndex === occ
-    );
-  });
 
   function overlayStyle(h: ScanHighlight): CSSProperties {
     if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
@@ -266,21 +257,6 @@ export function PdfHighlightViewer({
       width: `${(Math.max(h.x1 - h.x0, 1) / pageSize.width) * 100}%`,
       height: `${(Math.max(h.bottom - h.top, 1) / pageSize.height) * 100}%`,
       backgroundColor: SECTION_COLORS[h.section] ?? "rgba(100, 116, 139, 0.35)",
-    };
-  }
-
-  function backButtonStyle(h: ScanHighlight): CSSProperties {
-    if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
-      return { display: "none" };
-    }
-    const rightEdge = h.x1 / pageSize.width;
-    const placeLeft = rightEdge > 0.72;
-    return {
-      top: `${(h.top / pageSize.height) * 100}%`,
-      left: placeLeft
-        ? `${(h.x0 / pageSize.width) * 100}%`
-        : `${(h.x1 / pageSize.width) * 100}%`,
-      transform: placeLeft ? "translate(calc(-100% - 8px), 0)" : "translate(8px, 0)",
     };
   }
 
@@ -336,7 +312,7 @@ export function PdfHighlightViewer({
   );
 
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
@@ -419,12 +395,24 @@ export function PdfHighlightViewer({
 
       <div
         ref={viewportRef}
-        className="relative min-h-[28rem] flex-1 overflow-auto rounded border border-slate-200 bg-slate-50"
+        className="relative min-h-0 flex-1 overflow-auto rounded border border-slate-200 bg-slate-50"
       >
         {rendering && (
           <div className="absolute inset-x-0 top-0 z-10 bg-white/80 px-3 py-1 text-xs text-slate-500">
             Pagina laden…
           </div>
+        )}
+        {onBack && (
+          <button
+            type="button"
+            className="absolute top-2 right-2 z-30 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
+            onClick={(event) => {
+              event.stopPropagation();
+              onBack();
+            }}
+          >
+            {backLabel}
+          </button>
         )}
         <div className="relative inline-block min-w-full">
           <canvas ref={canvasRef} className="block h-auto max-w-none" />
@@ -458,19 +446,6 @@ export function PdfHighlightViewer({
                 />
               );
             })}
-            {onBack && selectedHighlight && (
-              <button
-                type="button"
-                className="absolute z-20 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
-                style={backButtonStyle(selectedHighlight)}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onBack();
-                }}
-              >
-                {backLabel}
-              </button>
-            )}
           </div>
         </div>
       </div>

@@ -1,12 +1,16 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { selectKpis, type KpiSelection } from "../analysis/kpis";
 import {
+  categoryLabel,
+  cloneKeyIds,
+  DEFAULT_DASHBOARD_RATIO_COUNT,
   keyRatiosForCategory,
+  orderedCategories,
   RATIO_CATEGORY_ORDER,
-  RATIO_VIEWS,
   ratiosInCategory,
   type RatioView,
 } from "../analysis/keyRatios";
+import { getRatiosConfigMeta } from "../api/client";
 import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
 import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
 import { SubTabs } from "./SubTabs";
@@ -20,7 +24,7 @@ interface RatioDashboardProps {
 }
 
 function titleCase(value: string): string {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+  return categoryLabel(value);
 }
 
 /** Split op gedeelde ' / ' zodat MAR-codes (29/58) niet verward worden met deling. */
@@ -174,6 +178,7 @@ function CategorySection({
   openFormulaId,
   onToggle,
   onClose,
+  separated,
 }: {
   category: string;
   items: RatioResult[];
@@ -181,11 +186,12 @@ function CategorySection({
   openFormulaId: string | null;
   onToggle: (id: string) => void;
   onClose: () => void;
+  separated?: boolean;
 }) {
   return (
-    <section>
+    <section className={separated ? "border-t border-slate-200 pt-6" : undefined}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
           {titleCase(category)}
         </h2>
         {onViewAll && (
@@ -227,7 +233,50 @@ export function RatioDashboard({
 }: RatioDashboardProps) {
   const [view, setView] = useState<RatioView>("dashboard");
   const [openFormulaId, setOpenFormulaId] = useState<string | null>(null);
+  const [dashboardCount, setDashboardCount] = useState(DEFAULT_DASHBOARD_RATIO_COUNT);
+  const [extraCategories, setExtraCategories] = useState<string[]>([]);
+  const [keyIds, setKeyIds] = useState<Record<string, string[]>>(() =>
+    cloneKeyIds(undefined),
+  );
   const kpis = selectKpis(result);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getRatiosConfigMeta()
+      .then((config) => {
+        if (cancelled) return;
+        setDashboardCount(config.dashboard_ratio_count);
+        setKeyIds(cloneKeyIds(config.dashboard_key_ids));
+        setExtraCategories(
+          orderedCategories(config.categories).filter(
+            (category) =>
+              !(RATIO_CATEGORY_ORDER as readonly string[]).includes(category),
+          ),
+        );
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [updating, ratios]);
+
+  const dashboardCategories = useMemo(
+    () => [...RATIO_CATEGORY_ORDER, ...extraCategories],
+    [extraCategories],
+  );
+
+  const views = useMemo(
+    () => [
+      { id: "dashboard" as const, label: "Dashboard" },
+      ...dashboardCategories.map((category) => ({
+        id: category,
+        label: categoryLabel(category),
+      })),
+    ],
+    [dashboardCategories],
+  );
 
   function toggleFormula(id: string) {
     setOpenFormulaId((current) => (current === id ? null : id));
@@ -251,7 +300,7 @@ export function RatioDashboard({
   return (
     <div className="space-y-6">
       <SubTabs
-        items={RATIO_VIEWS}
+        items={views}
         value={view}
         onChange={(id) => {
           setView(id);
@@ -273,11 +322,17 @@ export function RatioDashboard({
               ))}
             </div>
           </section>
-          {RATIO_CATEGORY_ORDER.map((category) => (
+          {dashboardCategories.map((category, index) => (
             <CategorySection
               key={category}
               category={category}
-              items={keyRatiosForCategory(ratios, category)}
+              separated={index > 0}
+              items={keyRatiosForCategory(
+                ratios,
+                category,
+                dashboardCount,
+                keyIds[category],
+              )}
               onViewAll={() => {
                 setView(category);
                 setOpenFormulaId(null);

@@ -109,8 +109,14 @@ function App() {
   const readOnly = session.stale || analyzing;
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
+    <div
+      className={
+        activeTab === "pdf_scan" && showResults
+          ? "flex h-screen flex-col overflow-hidden"
+          : "min-h-screen"
+      }
+    >
+      <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6">
           <h1 className="text-2xl font-bold text-slate-900">
             Jaarrekening Analyzer
@@ -129,7 +135,13 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <main
+        className={`mx-auto max-w-6xl px-4 py-8 ${
+          activeTab === "pdf_scan" && showResults
+            ? "flex min-h-0 flex-1 flex-col gap-6 overflow-hidden"
+            : "space-y-6"
+        }`}
+      >
         {!hasDocument && (
           <UploadZone onFile={session.startAnalysis} loading={analyzing} />
         )}
@@ -164,7 +176,7 @@ function App() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {TABS.filter(
             (tab) =>
               tab.id === "settings" ||
@@ -212,7 +224,13 @@ function App() {
         )}
 
         {showResults && session.result && (
-          <>
+          <div
+            className={
+              activeTab === "pdf_scan"
+                ? "flex min-h-0 flex-1 flex-col gap-6 overflow-hidden"
+                : "contents"
+            }
+          >
             {session.recomputeError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 Herberekening mislukt: {session.recomputeError}
@@ -226,6 +244,7 @@ function App() {
 
             {activeTab === "pdf_scan" &&
               (session.pdfUrl ? (
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <PdfWorkspace
                   pdfUrl={session.pdfUrl}
                   result={session.result}
@@ -245,6 +264,7 @@ function App() {
                     pdfReturnTo === "tables" ? "Terug naar tabellen" : "Terug"
                   }
                 />
+                </div>
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                   <p>PDF ontbreekt voor deze analyse.</p>
@@ -283,7 +303,7 @@ function App() {
                 <ValidationPanel validations={session.displayedValidations} />
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>

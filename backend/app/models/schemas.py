@@ -40,6 +40,9 @@ class RatiosConfigResponse(BaseModel):
     source: str = "bundled"  # bundled | saved
     version: int = 1
     updated_at: str | None = None
+    dashboard_ratio_count: int = 3
+    categories: list[str] = Field(default_factory=list)
+    dashboard_key_ids: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class RatioHistoryEntry(BaseModel):

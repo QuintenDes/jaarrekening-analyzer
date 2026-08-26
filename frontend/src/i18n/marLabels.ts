@@ -222,17 +222,23 @@ export const MAR_LABELS: Record<string, MarLabel> = {
   "697": L("Other allocations", "Andere rechthebbenden", "Autres allocataires"),
 };
 
+/** Trim and collapse spaces around `/` so "130 / 1" matches key "130/1". */
+export function normalizeMarCode(code: string): string {
+  return code.trim().replace(/\s*\/\s*/g, "/");
+}
+
 function lookupEntry(code: string): MarLabel | undefined {
-  const trimmed = code.trim();
-  if (MAR_LABELS[trimmed]) return MAR_LABELS[trimmed];
-  for (const alias of MAR_LABEL_ALIASES[trimmed] ?? []) {
+  const key = normalizeMarCode(code);
+  if (!key) return undefined;
+  if (MAR_LABELS[key]) return MAR_LABELS[key];
+  for (const alias of MAR_LABEL_ALIASES[key] ?? []) {
     const entry = MAR_LABELS[alias];
     if (entry) return entry;
   }
   return undefined;
 }
 
-/** Officiële NBB-omschrijving (NL), of null als onbekend. */
+/** Officiële NBB-omschrijving (NL) for this exact code, or null if unknown. */
 export function nbbGlossaryLabel(code: string): string | null {
   const entry = lookupEntry(code);
   return entry?.nl ?? null;

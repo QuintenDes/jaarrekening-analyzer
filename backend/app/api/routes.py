@@ -21,6 +21,7 @@ from app.models.schemas import (
     RatiosConfigResponse,
 )
 from app.ratios.engine import (
+    parse_ratios_document_extras,
     parse_ratios_yaml,
     validate_ratios_config,
 )
@@ -72,6 +73,9 @@ def _ratios_response(specs: list[dict] | None = None) -> RatiosConfigResponse:
         source=fields["source"],
         version=fields["version"],
         updated_at=fields["updated_at"],
+        dashboard_ratio_count=fields["dashboard_ratio_count"],
+        categories=fields["categories"],
+        dashboard_key_ids=fields["dashboard_key_ids"],
     )
 
 
@@ -142,7 +146,13 @@ def put_ratios(
         specs = validate_ratios_config(
             [spec.model_dump(exclude_none=True) for spec in body.ratios]
         )
-        saved, _meta = persist_specs(specs, expected_version=body.version)
+        saved, _meta = persist_specs(
+            specs,
+            expected_version=body.version,
+            dashboard_ratio_count=body.dashboard_ratio_count,
+            categories=body.categories,
+            dashboard_key_ids=body.dashboard_key_ids,
+        )
     except StaleConfigError as exc:
         raise _stale_conflict(exc) from exc
     except ValueError as exc:
@@ -221,12 +231,18 @@ def parse_ratios(body: dict) -> RatiosConfigResponse:
         raise HTTPException(status_code=400, detail="Veld 'yaml' (string) is verplicht.")
     try:
         specs = parse_ratios_yaml(yaml_text)
+        extras = parse_ratios_document_extras(yaml_text)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("YAML parse failed")
         raise HTTPException(status_code=422, detail="Ongeldige YAML.") from exc
-    return RatiosConfigResponse(ratios=[RatioSpec.model_validate(spec) for spec in specs])
+    return RatiosConfigResponse(
+        ratios=[RatioSpec.model_validate(spec) for spec in specs],
+        dashboard_ratio_count=extras["dashboard_ratio_count"],
+        categories=extras["categories"],
+        dashboard_key_ids=extras["dashboard_key_ids"],
+    )
 
 
 @router.post("/ratios/compute", response_model=RatioComputeResponse)

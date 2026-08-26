@@ -26,9 +26,11 @@ from app.pdf.format import SCHEMA_HEADER_RE, detect_schema_format_from_text
 AMOUNT_AT_END = re.compile(r"(-?\d{1,3}(?:\.\d{3})+)$")  # Belgisch formaat: 1.234.567
 # Bedrag met of zonder duizendpunten (1.064 of 80)
 AMOUNT_TOKEN = r"-?\d{1,3}(?:\.\d{3})+|-?\d+"
-# MAR-code, optioneel tussen haakjes (kruisverwijzing zoals (9905) of (14))
-MAR_CODE = r"\d{1,4}(?:/\d{1,4})?[A-Z]?"
+# MAR-code, optioneel tussen haakjes (kruisverwijzing zoals (9905) of (14)).
+# Optional whitespace around `/` is accepted then stripped (PDF column splits).
+MAR_CODE = r"\d{1,4}(?:\s*/\s*\d{1,4})?[A-Z]?"
 CODE_AT_END = re.compile(rf"({MAR_CODE})$")  # normale code zonder haakjes
+_SLASH_SPACES = re.compile(r"\s*/\s*")
 # Kruisverwijzing + optionele bedragen (ook zonder duizendtallen: 236 911)
 PAREN_CODE_SUFFIX = re.compile(
     rf"\(({MAR_CODE})\)"
@@ -55,7 +57,8 @@ CONTINUATION_ONLY = re.compile(rf"^\((?!{MAR_CODE}\))[^)]+\)$")
 JAARREKENING_GATE = re.compile(r"^JAARREKENING$", re.IGNORECASE)
 
 # Voetteksten zoals "5 / 55" (pagina / totaal) — geen MAR-codes.
-PAGE_NUMBER_RE = re.compile(r"^\d+\s*/\s*\d+$")
+# Require spaces around `/` so compact codes like "20/58" or "130/1" are kept.
+PAGE_NUMBER_RE = re.compile(r"^\d+\s+/\s+\d+$")
 
 # Toelichting begint typisch bij sectie 6 (VOL/VKT/MIC-kap/inb 6.x); vaak zonder
 # exacte titelregel "TOELICHTING".
@@ -134,8 +137,18 @@ CLUSTER_MAX_TOP_DELTA = 11.0
 CODE_ONLY_LINE = re.compile(rf"^({MAR_CODE})$")
 
 
+def normalize_mar_code(code: str) -> str:
+    """Collapse spaces around `/` so extracted '130 / 1' stores as '130/1'."""
+    return _SLASH_SPACES.sub("/", code.strip())
+
+
 def _is_code_only_fragment(text: str) -> bool:
     return CODE_ONLY_LINE.match(text.strip()) is not None
+
+
+def _ends_with_slash_code(text: str) -> bool:
+    match = CODE_AT_END.search(text.rstrip())
+    return bool(match) and "/" in match.group(1)
 
 
 def _strip_trailing_amounts(text: str) -> str:
@@ -146,7 +159,7 @@ def _strip_trailing_amounts(text: str) -> str:
         if not match:
             break
         rest = rest[: match.start()].rstrip()
-    if AMOUNT_AT_END.search(rest) is None:
+    if AMOUNT_AT_END.search(rest) is None and not _ends_with_slash_code(rest):
         plain = re.search(r"(-?\d+)$", rest)
         if plain:
             trial = rest[: plain.start()].rstrip()
@@ -163,20 +176,20 @@ def _mar_codes_in_text(text: str) -> set[str]:
 
     if _is_code_only_fragment(stripped):
         match = CODE_ONLY_LINE.match(stripped)
-        return {match.group(1)} if match else set()
+        return {normalize_mar_code(match.group(1))} if match else set()
 
     paren = PAREN_CODE_SUFFIX.search(stripped)
     if paren:
-        return {paren.group(1)}
+        return {normalize_mar_code(paren.group(1))}
 
     code_first = CODE_FIRST_LINE.match(stripped)
     if code_first:
-        return {code_first.group(2)}
+        return {normalize_mar_code(code_first.group(2))}
 
     rest = _strip_trailing_amounts(stripped)
     code_match = CODE_AT_END.search(rest)
     if code_match:
-        return {code_match.group(1)}
+        return {normalize_mar_code(code_match.group(1))}
     return set()
 
 
@@ -445,7 +458,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
     # Kruisverwijzingen: "... (9905) 1.093.780 3.554.703" of "... (14) 236 911"
     paren_match = PAREN_CODE_SUFFIX.search(stripped)
     if paren_match:
-        code = paren_match.group(1)
+        code = normalize_mar_code(paren_match.group(1))
         raw_curr = paren_match.group(2)
         raw_prev = paren_match.group(3)
         omschrijving = stripped[: paren_match.start()].rstrip()
@@ -472,8 +485,9 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
         rest = rest[: match.start()].rstrip()
 
     # Mix: "111 0 13.067" — na een gedoteerd bedrag nog een kale 0/80/... pellen,
-    # maar alleen als er daarna nog een MAR-code overblijft (niet "Omzet 70").
-    if amounts and len(amounts) < 2:
+    # maar alleen als er daarna nog een MAR-code overblijft (niet "Omzet 70")
+    # and the trailing digits are not a slash-code suffix ("130/1").
+    if amounts and len(amounts) < 2 and not _ends_with_slash_code(rest):
         plain = re.search(r"(-?\d+)$", rest)
         if plain:
             trial = rest[: plain.start()].rstrip()
@@ -485,7 +499,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
     if not amounts:
         plain_match = PLAIN_CODE_AMOUNTS.search(stripped)
         if plain_match:
-            code = plain_match.group(1)
+            code = normalize_mar_code(plain_match.group(1))
             omschrijving = stripped[: plain_match.start()].rstrip()
             if require_description and not omschrijving:
                 return None
@@ -505,7 +519,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
     if not code_match:
         return None
 
-    code = code_match.group(1)
+    code = normalize_mar_code(code_match.group(1))
     rest = rest[: code_match.start()].rstrip()
 
     # Stap C: optioneel toelichtingsnummer
@@ -539,7 +553,7 @@ def parse_code_first_line(line: str, section: str) -> Row | None:
         return None
 
     toelichting = match.group(1) or ""
-    code = match.group(2)
+    code = normalize_mar_code(match.group(2))
     boekjaar = parse_amount(match.group(3))
     vorig_boekjaar = parse_amount(match.group(4)) if match.group(4) else None
 
@@ -757,7 +771,7 @@ def row_to_statement(row: Row) -> StatementLine:
         section=row.sectie,
         label=row.omschrijving,
         footnote=row.toelichting,
-        code=row.code,
+        code=normalize_mar_code(row.code),
         current=row.boekjaar,
         previous=row.vorig_boekjaar,
     )

@@ -30,7 +30,7 @@ export function StatementTable({
   amountFormat = "full",
   selectedCode,
   onSelectRow,
-  readOnly = false,
+  readOnly: _readOnly = false,
 }: StatementTableProps) {
   const depths = assignLineDepths(lines);
   const selectedRef = useRef<HTMLTableRowElement | null>(null);
@@ -51,7 +51,7 @@ export function StatementTable({
         <table className="min-w-full table-fixed text-left text-sm">
           <thead className="sticky top-0 bg-white text-slate-500">
             <tr className="border-y border-slate-200">
-              <th className="w-20 px-4 py-2 align-top font-medium">Code</th>
+              <th className="w-28 px-4 py-2 align-top font-medium">Code</th>
               <th className="px-4 py-2 align-top font-medium">Omschrijving</th>
               <th className="w-16 px-4 py-2 align-top font-medium">Toel.</th>
               <th className="w-28 px-4 py-2 align-top text-right font-medium">
@@ -84,12 +84,12 @@ export function StatementTable({
                   onClick={() => onSelectRow?.(line.code)}
                   className={`border-t border-slate-100 ${onSelectRow ? "cursor-pointer" : ""} ${
                     selected
-                      ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300"
+                      ? "bg-emerald-50/80 shadow-[inset_3px_0_0_0_theme(colors.emerald.600)]"
                       : "hover:bg-slate-50"
-                  } ${readOnly ? "" : ""}`}
+                  }`}
                 >
                   <td
-                    className={`px-4 py-2.5 align-top font-mono ${
+                    className={`whitespace-nowrap px-4 py-2.5 align-top font-mono ${
                       emphasize
                         ? "font-semibold text-emerald-800"
                         : "text-slate-600"

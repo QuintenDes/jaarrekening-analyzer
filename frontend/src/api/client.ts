@@ -95,12 +95,27 @@ function asConfigMeta(data: {
   source?: "bundled" | "saved";
   version?: number;
   updated_at?: string | null;
+  dashboard_ratio_count?: number;
+  categories?: string[];
+  dashboard_key_ids?: Record<string, string[]>;
 }): RatiosConfigMeta {
+  const count = data.dashboard_ratio_count;
   return {
     ratios: data.ratios,
     source: data.source === "saved" ? "saved" : "bundled",
     version: typeof data.version === "number" ? data.version : 1,
     updated_at: data.updated_at ?? null,
+    dashboard_ratio_count:
+      typeof count === "number" && Number.isFinite(count) && count >= 1
+        ? Math.floor(count)
+        : 3,
+    categories: Array.isArray(data.categories)
+      ? data.categories.filter((item): item is string => typeof item === "string")
+      : [],
+    dashboard_key_ids:
+      data.dashboard_key_ids && typeof data.dashboard_key_ids === "object"
+        ? data.dashboard_key_ids
+        : {},
   };
 }
 
@@ -114,6 +129,11 @@ export async function saveRatiosConfig(
   ratios: RatioSpec[],
   adminToken: string,
   version: number,
+  extras?: {
+    dashboard_ratio_count?: number;
+    categories?: string[];
+    dashboard_key_ids?: Record<string, string[]>;
+  },
 ): Promise<RatiosConfigMeta> {
   const response = await fetch("/api/ratios", {
     method: "PUT",
@@ -121,7 +141,13 @@ export async function saveRatiosConfig(
       "Content-Type": "application/json",
       "X-Admin-Token": adminToken,
     },
-    body: JSON.stringify({ ratios, version }),
+    body: JSON.stringify({
+      ratios,
+      version,
+      dashboard_ratio_count: extras?.dashboard_ratio_count,
+      categories: extras?.categories,
+      dashboard_key_ids: extras?.dashboard_key_ids,
+    }),
   });
   await throwIfNotOk(response);
   return asConfigMeta(await response.json());
@@ -157,16 +183,15 @@ export async function restoreRatiosHistory(
   return asConfigMeta(await response.json());
 }
 
-/** Parse YAML-tekst naar gevalideerde ratio-specs (geen schijfschrijven). */
-export async function parseRatiosYaml(yamlText: string): Promise<RatioSpec[]> {
+/** Parse YAML-tekst naar gevalideerde ratio-config (geen schijfschrijven). */
+export async function parseRatiosYaml(yamlText: string): Promise<RatiosConfigMeta> {
   const response = await fetch("/api/ratios/parse", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ yaml: yamlText }),
   });
   await throwIfNotOk(response);
-  const data = (await response.json()) as { ratios: RatioSpec[] };
-  return data.ratios;
+  return asConfigMeta(await response.json());
 }
 
 export async function computeRatios(payload: {

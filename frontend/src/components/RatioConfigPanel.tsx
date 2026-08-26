@@ -2,8 +2,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   categoryKey,
   categoryLabel,
+  cloneKeyIds,
+  DEFAULT_DASHBOARD_RATIO_COUNT,
   orderedCategories,
   RATIO_CATEGORY_ORDER,
+  rewriteKeyIds,
 } from "../analysis/keyRatios";
 import {
   ApiError,
@@ -15,6 +18,7 @@ import {
   saveRatiosConfig,
 } from "../api/client";
 import type { RatioHistoryEntry, RatioSpec, RatiosConfigMeta } from "../types";
+import { ratioIdFromName } from "../utils/ratioId";
 import {
   blankRatioSpec,
   downloadRatiosYaml,
@@ -72,15 +76,23 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   const [activeCategory, setActiveCategory] = useState<string>(
     RATIO_CATEGORY_ORDER[0],
   );
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [dashboardCount, setDashboardCount] = useState(DEFAULT_DASHBOARD_RATIO_COUNT);
+  const [keyIds, setKeyIds] = useState<Record<string, string[]>>(() =>
+    cloneKeyIds(undefined),
+  );
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = useMemo(
     () =>
       orderedCategories([
         ...RATIO_CATEGORY_ORDER,
+        ...customCategories,
         ...draft.map((spec) => spec.category),
       ]),
-    [draft],
+    [customCategories, draft],
   );
 
   const categoryRows = useMemo(
@@ -106,6 +118,14 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
       version: config.version,
       updated_at: config.updated_at,
     });
+    setDashboardCount(config.dashboard_ratio_count || DEFAULT_DASHBOARD_RATIO_COUNT);
+    setKeyIds(cloneKeyIds(config.dashboard_key_ids));
+    setCustomCategories(
+      orderedCategories(config.categories).filter(
+        (category) =>
+          !(RATIO_CATEGORY_ORDER as readonly string[]).includes(category),
+      ),
+    );
   }
 
   async function loadConfig() {
@@ -133,11 +153,20 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   }
 
   function updateSpec(index: number, patch: Partial<RatioSpec>) {
-    setDraft((current) =>
-      current.map((spec, i) =>
-        i === index ? normalizeSpec({ ...spec, ...patch }) : spec,
-      ),
-    );
+    setDraft((current) => {
+      const previous = current[index];
+      const nextSpec = normalizeSpec({ ...previous, ...patch });
+      if (patch.name !== undefined && patch.name !== previous.name) {
+        const taken = current
+          .filter((_, i) => i !== index)
+          .map((spec) => spec.id);
+        nextSpec.id = ratioIdFromName(patch.name, taken);
+      }
+      if (nextSpec.id !== previous.id) {
+        setKeyIds((ids) => rewriteKeyIds(ids, previous.id, nextSpec.id));
+      }
+      return current.map((spec, i) => (i === index ? nextSpec : spec));
+    });
   }
 
   function moveSpec(index: number, direction: -1 | 1) {
@@ -178,7 +207,14 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
     return "Netwerkfout. Probeer opnieuw.";
   }
 
-  async function handleSave(specs: RatioSpec[] = draft) {
+  async function handleSave(
+    specs: RatioSpec[] = draft,
+    extras?: {
+      dashboard_ratio_count?: number;
+      categories?: string[];
+      dashboard_key_ids?: Record<string, string[]>;
+    },
+  ) {
     if (!adminToken.trim()) {
       setError("Vul het admin-wachtwoord in om op te slaan.");
       return;
@@ -188,7 +224,11 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
     setError(null);
     setNotice(null);
     try {
-      const saved = await saveRatiosConfig(specs, adminToken.trim(), meta.version);
+      const saved = await saveRatiosConfig(specs, adminToken.trim(), meta.version, {
+        dashboard_ratio_count: extras?.dashboard_ratio_count ?? dashboardCount,
+        categories: extras?.categories ?? categories,
+        dashboard_key_ids: extras?.dashboard_key_ids ?? keyIds,
+      });
       applyServerConfig(saved);
       setHistory(await getRatiosHistory().catch(() => []));
       setNotice("Configuratie opgeslagen.");
@@ -256,12 +296,52 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
     }
   }
 
+  function addCategory() {
+    const key = categoryKey(newCategoryName);
+    if (!key) {
+      setError("Geef de nieuwe categorie een naam.");
+      return;
+    }
+    setError(null);
+    if (!categories.includes(key)) {
+      setCustomCategories((current) =>
+        orderedCategories([...current, key]).filter(
+          (category) =>
+            !(RATIO_CATEGORY_ORDER as readonly string[]).includes(category),
+        ),
+      );
+    }
+    setActiveCategory(key);
+    setAddingCategory(false);
+    setNewCategoryName("");
+    setExpanded(null);
+  }
+
   async function applyImport(yamlText: string) {
     setError(null);
     setNotice(null);
     try {
-      const specs = await parseRatiosYaml(yamlText);
-      await handleSave(specs.map((spec) => normalizeSpec(spec)));
+      const parsed = await parseRatiosYaml(yamlText);
+      const nextCategories = orderedCategories([
+        ...RATIO_CATEGORY_ORDER,
+        ...parsed.categories,
+        ...parsed.ratios.map((spec) => spec.category),
+      ]);
+      const nextCount =
+        parsed.dashboard_ratio_count || DEFAULT_DASHBOARD_RATIO_COUNT;
+      const nextKeyIds = cloneKeyIds(
+        Object.keys(parsed.dashboard_key_ids).length > 0
+          ? parsed.dashboard_key_ids
+          : keyIds,
+      );
+      await handleSave(
+        parsed.ratios.map((spec) => normalizeSpec(spec)),
+        {
+          dashboard_ratio_count: nextCount,
+          categories: nextCategories,
+          dashboard_key_ids: nextKeyIds,
+        },
+      );
       setShowImport(false);
       setImportText("");
     } catch (err) {
@@ -297,6 +377,19 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
             </p>
             <p>Versie: {meta?.version ?? "—"}</p>
             <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
+            <label className="mt-3 block text-xs font-medium text-slate-600">
+              Aantal ratio’s per categorie op het Dashboard
+              <input
+                type="number"
+                min={1}
+                value={dashboardCount}
+                onChange={(event) => {
+                  const n = Number(event.target.value);
+                  setDashboardCount(Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1);
+                }}
+                className="mt-1 w-full max-w-[8rem] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
           </div>
         </div>
       </div>
@@ -321,7 +414,13 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
         <button
           type="button"
           onClick={() =>
-            setDraft((current) => [...current, blankRatioSpec(activeCategory)])
+            setDraft((current) => [
+              ...current,
+              blankRatioSpec(
+                activeCategory,
+                current.map((spec) => spec.id),
+              ),
+            ])
           }
           disabled={saving}
           className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
@@ -330,7 +429,13 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
         </button>
         <button
           type="button"
-          onClick={() => downloadRatiosYaml(exported)}
+          onClick={() =>
+            downloadRatiosYaml(exported, "ratios.yaml", {
+              dashboard_ratio_count: dashboardCount,
+              categories,
+              dashboard_key_ids: keyIds,
+            })
+          }
           disabled={exported.length === 0}
           className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
@@ -414,6 +519,52 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
               setActiveCategory(id);
               setExpanded(null);
             }}
+            trailing={
+              <div className="ml-auto flex items-center gap-2 px-1 pb-2">
+                {addingCategory ? (
+                  <>
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      placeholder="Naam categorie"
+                      className="w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addCategory();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addCategory}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                    >
+                      Opslaan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingCategory(false);
+                        setNewCategoryName("");
+                      }}
+                      className="text-xs text-slate-500 hover:text-slate-800"
+                    >
+                      Annuleren
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingCategory(true)}
+                    className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    Categorie toevoegen
+                  </button>
+                )}
+              </div>
+            }
           />
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="max-h-[70vh] overflow-auto">
@@ -430,7 +581,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                       <th className="px-4 py-2 font-medium">Naam</th>
                       <th className="px-4 py-2 font-medium">Formule</th>
                       <th className="w-28 px-4 py-2 font-medium">Volgorde</th>
-                      <th className="w-28 px-4 py-2 font-medium">Acties</th>
+                      <th className="w-40 px-4 py-2 font-medium">Acties</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -459,22 +610,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                             />
                           </td>
                           <td className="px-4 py-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpanded((current) =>
-                                  current === index ? null : index,
-                                )
-                              }
-                              className="inline-flex max-w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left ring-1 ring-slate-200 hover:bg-emerald-50 hover:ring-emerald-200"
-                            >
-                              <span className="truncate font-mono text-xs text-slate-800">
-                                {formulaPreview(spec)}
-                              </span>
-                              <span className="shrink-0 text-[11px] font-medium text-emerald-700">
-                                {expanded === index ? "Sluiten" : "Bewerken"}
-                              </span>
-                            </button>
+                            <span className="truncate font-mono text-xs text-slate-800">
+                              {formulaPreview(spec)}
+                            </span>
                           </td>
                           <td className="px-4 py-2">
                             <div className="flex gap-1">
@@ -497,17 +635,30 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDraft((current) =>
-                                  current.filter((_, i) => i !== index),
-                                )
-                              }
-                              className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
-                            >
-                              Verwijderen
-                            </button>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpanded((current) =>
+                                    current === index ? null : index,
+                                  )
+                                }
+                                className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                              >
+                                {expanded === index ? "Sluiten" : "Bewerken"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDraft((current) =>
+                                    current.filter((_, i) => i !== index),
+                                  )
+                                }
+                                className="rounded-lg px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
+                              >
+                                Verwijderen
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {expanded === index && (
@@ -515,12 +666,11 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                             <td colSpan={5} className="px-4 py-3">
                               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                 <Field
-                                  label="id"
+                                  label="id (automatisch)"
                                   value={spec.id}
-                                  onChange={(value) =>
-                                    updateSpec(index, { id: value })
-                                  }
+                                  onChange={() => undefined}
                                   mono
+                                  readOnly
                                 />
                                 <Field
                                   label="categorie"
@@ -622,12 +772,14 @@ function Field({
   onChange,
   mono,
   placeholder,
+  readOnly,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   mono?: boolean;
   placeholder?: string;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block text-xs font-medium text-slate-600">
@@ -636,10 +788,11 @@ function Field({
         type="text"
         value={value}
         placeholder={placeholder}
+        readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
         className={`mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 ${
           mono ? "font-mono" : ""
-        }`}
+        } ${readOnly ? "bg-slate-100 text-slate-600" : ""}`}
       />
     </label>
   );

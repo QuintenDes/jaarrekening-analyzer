@@ -1,8 +1,36 @@
 import type { RatioSpec } from "../types";
+import { ratioIdFromName } from "./ratioId";
 
 /** Serialize ratio specs to a ratios.yaml body (client-side export). */
-export function ratiosToYaml(ratios: RatioSpec[]): string {
-  const lines: string[] = ["ratios:"];
+export function ratiosToYaml(
+  ratios: RatioSpec[],
+  extras?: {
+    dashboard_ratio_count?: number;
+    categories?: string[];
+    dashboard_key_ids?: Record<string, string[]>;
+  },
+): string {
+  const lines: string[] = [];
+  if (extras?.dashboard_ratio_count) {
+    lines.push(`dashboard_ratio_count: ${extras.dashboard_ratio_count}`);
+  }
+  if (extras?.categories && extras.categories.length > 0) {
+    lines.push("categories:");
+    for (const category of extras.categories) {
+      lines.push(`  - ${yamlScalar(category)}`);
+    }
+  }
+  if (extras?.dashboard_key_ids && Object.keys(extras.dashboard_key_ids).length > 0) {
+    lines.push("dashboard_key_ids:");
+    for (const [category, ids] of Object.entries(extras.dashboard_key_ids)) {
+      lines.push(`  ${yamlScalar(category)}:`);
+      for (const id of ids) {
+        lines.push(`    - ${yamlScalar(id)}`);
+      }
+    }
+  }
+  if (lines.length > 0) lines.push("");
+  lines.push("ratios:");
   for (const ratio of ratios) {
     lines.push(`  - id: ${yamlScalar(ratio.id)}`);
     lines.push(`    name: ${yamlScalar(ratio.name)}`);
@@ -33,8 +61,16 @@ function yamlScalar(value: string): string {
   return value;
 }
 
-export function downloadRatiosYaml(ratios: RatioSpec[], filename = "ratios.yaml") {
-  const blob = new Blob([ratiosToYaml(ratios)], {
+export function downloadRatiosYaml(
+  ratios: RatioSpec[],
+  filename = "ratios.yaml",
+  extras?: {
+    dashboard_ratio_count?: number;
+    categories?: string[];
+    dashboard_key_ids?: Record<string, string[]>;
+  },
+) {
+  const blob = new Blob([ratiosToYaml(ratios, extras)], {
     type: "text/yaml;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
@@ -58,11 +94,14 @@ export function normalizeSpec(spec: Partial<RatioSpec> & Pick<RatioSpec, "id">):
   };
 }
 
-export function blankRatioSpec(category = "overig"): RatioSpec {
-  const stamp = Date.now().toString(36);
+export function blankRatioSpec(
+  category = "overig",
+  takenIds: Iterable<string> = [],
+): RatioSpec {
+  const name = "Nieuwe ratio";
   return {
-    id: `ratio_${stamp}`,
-    name: "Nieuwe ratio",
+    id: ratioIdFromName(name, takenIds),
+    name,
     category,
     numerator: "",
     denominator: null,

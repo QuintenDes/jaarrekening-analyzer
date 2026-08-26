@@ -61,8 +61,8 @@ export function PdfWorkspace({
   );
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-slate-900">PDF scan</h2>
         <div className="flex gap-2">
           {onBack && (
@@ -92,22 +92,24 @@ export function PdfWorkspace({
       </div>
 
       <div
-        className={`grid min-h-[32rem] gap-3 ${
+        className={`grid min-h-0 flex-1 grid-rows-1 gap-3 ${
           collapsed ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1.7fr)_minmax(16rem,0.85fr)]"
         }`}
       >
-        <PdfHighlightViewer
-          pdfUrl={pdfUrl}
-          highlights={result.highlights ?? []}
-          pageSizes={result.page_sizes ?? []}
-          pageCount={result.page_count ?? null}
-          selection={selection}
-          onSelectHighlight={selectFromHighlight}
-          onBack={onBack}
-          backLabel={backLabel}
-        />
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          <PdfHighlightViewer
+            pdfUrl={pdfUrl}
+            highlights={result.highlights ?? []}
+            pageSizes={result.page_sizes ?? []}
+            pageCount={result.page_count ?? null}
+            selection={selection}
+            onSelectHighlight={selectFromHighlight}
+            onBack={onBack}
+            backLabel={backLabel}
+          />
+        </div>
         {!collapsed && (
-          <div className="hidden min-h-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
+          <div className="hidden h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 lg:block">
             {panel}
           </div>
         )}

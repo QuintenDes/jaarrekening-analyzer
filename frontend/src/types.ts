@@ -25,6 +25,9 @@ export interface RatiosConfigMeta {
   source: "bundled" | "saved";
   version: number;
   updated_at: string | null;
+  dashboard_ratio_count: number;
+  categories: string[];
+  dashboard_key_ids: Record<string, string[]>;
 }
 
 export interface RatioHistoryEntry {

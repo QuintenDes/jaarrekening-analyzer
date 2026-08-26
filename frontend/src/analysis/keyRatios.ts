@@ -8,7 +8,7 @@ export const RATIO_CATEGORY_ORDER = [
 
 export type RatioCategoryId = (typeof RATIO_CATEGORY_ORDER)[number];
 
-export type RatioView = "dashboard" | RatioCategoryId;
+export type RatioView = "dashboard" | string;
 
 export const RATIO_VIEWS: { id: RatioView; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -18,13 +18,13 @@ export const RATIO_VIEWS: { id: RatioView; label: string }[] = [
 ];
 
 /** Verified against backend/config/ratios.yaml — existing IDs only. */
-export const KEY_RATIO_IDS: Record<RatioCategoryId, readonly string[]> = {
+export const KEY_RATIO_IDS: Record<string, readonly string[]> = {
   liquiditeit: ["current_ratio", "quick_ratio", "net_working_capital"],
   solvabiliteit: ["solvability", "financial_independence", "debt_ratio"],
   rentabiliteit: ["rev", "rtv", "gross_margin"],
 };
 
-const KEY_LIMIT = 3;
+export const DEFAULT_DASHBOARD_RATIO_COUNT = 3;
 
 export function ratiosInCategory(
   ratios: RatioResult[],
@@ -60,18 +60,42 @@ export function orderedCategories(values: Iterable<string>): string[] {
   ];
 }
 
+export function rewriteKeyIds(
+  keyIds: Record<string, string[]>,
+  fromId: string,
+  toId: string,
+): Record<string, string[]> {
+  if (fromId === toId) return keyIds;
+  const next: Record<string, string[]> = {};
+  for (const [category, ids] of Object.entries(keyIds)) {
+    next[category] = ids.map((id) => (id === fromId ? toId : id));
+  }
+  return next;
+}
+
+export function cloneKeyIds(
+  keyIds: Record<string, readonly string[]> | undefined,
+): Record<string, string[]> {
+  const source = keyIds && Object.keys(keyIds).length > 0 ? keyIds : KEY_RATIO_IDS;
+  const next: Record<string, string[]> = {};
+  for (const [category, ids] of Object.entries(source)) {
+    next[category] = [...ids];
+  }
+  return next;
+}
+
 /**
- * Dashboard selection: the 3 designated key metrics for a category.
- * If a designated id is missing from results, fall back to the next
- * remaining item in existing category order.
+ * Dashboard selection: designated key metrics for a category, then fill
+ * from remaining items in existing category order up to `limit`.
  */
 export function keyRatiosForCategory(
   ratios: RatioResult[],
-  category: RatioCategoryId,
-  limit = KEY_LIMIT,
+  category: string,
+  limit = DEFAULT_DASHBOARD_RATIO_COUNT,
+  preferredIds?: readonly string[],
 ): RatioResult[] {
   const inCategory = ratiosInCategory(ratios, category);
-  const preferred = KEY_RATIO_IDS[category] ?? [];
+  const preferred = preferredIds ?? KEY_RATIO_IDS[category] ?? [];
   const selected: RatioResult[] = [];
   const used = new Set<string>();
 

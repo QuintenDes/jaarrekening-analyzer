@@ -272,6 +272,32 @@ def test_disabled_ratio_omitted_from_compute() -> None:
     assert "quick_ratio" in ids
 
 
+def test_dashboard_settings_persist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    with _client(tmp_path, monkeypatch) as client:
+        current = client.get("/api/ratios").json()
+        assert current["dashboard_ratio_count"] == 3
+        assert "liquiditeit" in current["categories"]
+        assert current["dashboard_key_ids"]["liquiditeit"][0] == "current_ratio"
+        saved = client.put(
+            "/api/ratios",
+            json={
+                "ratios": current["ratios"],
+                "version": current["version"],
+                "dashboard_ratio_count": 6,
+                "categories": current["categories"] + ["extra"],
+                "dashboard_key_ids": current["dashboard_key_ids"],
+            },
+            headers=_auth(),
+        )
+        assert saved.status_code == 200, saved.text
+        body = saved.json()
+        assert body["dashboard_ratio_count"] == 6
+        assert "extra" in body["categories"]
+        disk = yaml.safe_load((tmp_path / "ratios.yaml").read_text(encoding="utf-8"))
+        assert disk["dashboard_ratio_count"] == 6
+        assert "extra" in disk["categories"]
+
+
 def test_enabled_and_missing_enabled_compute_as_before() -> None:
     specs = parse_ratios_yaml(BUNDLED_RATIOS_PATH.read_text(encoding="utf-8"))
     assert "enabled" not in yaml.safe_load(
@@ -284,3 +310,57 @@ def test_enabled_and_missing_enabled_compute_as_before() -> None:
     enabled_results = compute_ratios(CodeAggregator(_sample_lines()), enabled_specs)
     assert [item.id for item in enabled_results] == [item.id for item in results]
     assert enabled_results[0].value == results[0].value
+
+
+def test_normalize_collapses_spaces_around_slash() -> None:
+    from app.pdf.extractor import normalize_mar_code
+
+    assert normalize_mar_code("130 / 1") == "130/1"
+    assert normalize_mar_code(" 1100/10 ") == "1100/10"
+    assert normalize_mar_code("70/76A") == "70/76A"
+    assert normalize_mar_code("14P") == "14P"
+
+
+def test_parse_keeps_slash_suffix_codes() -> None:
+    from app.pdf.extractor import parse_line
+
+    row = parse_line("Wettelijke reserve 130/1 1.000 900", "balans_passiva")
+    assert row is not None
+    assert row.code == "130/1"
+
+    spaced = parse_line("Wettelijke reserve 130 / 1 1.000 900", "balans_passiva")
+    assert spaced is not None
+    assert spaced.code == "130/1"
+
+    long_code = parse_line("Beschikbaar 1100/10 2.500 2.400", "balans_passiva")
+    assert long_code is not None
+    assert long_code.code == "1100/10"
+    assert long_code.boekjaar == 2500
+
+
+def test_parse_does_not_truncate_to_parent_code() -> None:
+    from app.pdf.extractor import parse_line
+
+    row = parse_line("Beschikbaar 1100/10 100 90", "balans_passiva")
+    assert row is not None
+    assert row.code != "11"
+    assert row.code != "1100"
+    assert row.code != "10"
+
+
+def test_compact_mar_code_is_not_skipped_as_page_number() -> None:
+    from app.pdf.extractor import should_skip
+
+    assert should_skip("5 / 55") is True
+    assert should_skip("20/58") is False
+    assert should_skip("130/1") is False
+    assert should_skip("1100/10") is False
+
+
+def test_letter_suffix_and_range_codes() -> None:
+    from app.pdf.extractor import parse_line
+
+    assert parse_line("Bedrijfsopbrengsten 70/76A 10.000 9.000", "resultatenrekening").code == "70/76A"
+    assert parse_line("Overgedragen winst vorig 14P 100 80", "balans_passiva").code == "14P"
+    assert parse_line("Verbonden ondernemingen 280/1 50 40", "balans_activa").code == "280/1"
+    assert parse_line("Totaal der activa 20/58 1.000 900", "balans_activa").code == "20/58"

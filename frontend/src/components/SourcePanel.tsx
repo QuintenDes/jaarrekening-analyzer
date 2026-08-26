@@ -6,6 +6,7 @@ import {
   selectionForEntry,
   type SourceEntry,
 } from "../analysis/sources";
+import { nbbGlossaryLabel } from "../i18n/marLabels";
 import type { AmountFormat, SourceSelection } from "../types";
 import { formatAmount } from "../utils/format";
 
@@ -60,26 +61,24 @@ export function SourcePanel({
               {group.items.map((entry) => {
                 const selected = selection?.section === entry.section && selection.code === entry.code;
                 const open = expanded.has(entry.key);
-                const page =
-                  selected && selection
-                    ? selection.page
-                    : entry.occurrences[entry.occurrences.length - 1]?.page ?? 0;
+                const glossary = nbbGlossaryLabel(entry.code);
                 return (
                   <li key={entry.key} className="border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => onSelect(selectionForEntry(entry))}
-                      className={`w-full px-3 py-2 text-left text-sm ${
+                      className={`flex w-full items-baseline gap-2 px-3 py-2 text-left text-sm ${
                         selected ? "bg-emerald-50" : "hover:bg-slate-50"
                       }`}
                     >
-                      <span className="block font-medium text-slate-800">
-                        {entry.label}
+                      <span className="shrink-0 font-mono text-xs text-slate-600">
+                        {entry.code}
                       </span>
-                      <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
-                        <span className="font-mono">{entry.code}</span>
-                        <span>{formatAmount(entry.amount, amountFormat)}</span>
-                        <span>p. {page + 1}</span>
+                      <span className="min-w-0 flex-1 font-medium text-slate-800">
+                        {glossary ?? entry.label}
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-slate-600">
+                        {formatAmount(entry.amount, amountFormat)}
                       </span>
                     </button>
                     {entry.occurrences.length > 1 && (

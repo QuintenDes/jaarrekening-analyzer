@@ -19,6 +19,9 @@ from app.ratios.store import (
     load_active_specs,
     persist_specs,
     reset_to_bundled,
+    _normalize_categories,
+    _normalize_count,
+    _normalize_key_ids,
 )
 
 ALLOWED_SPEC_KEYS = frozenset(
@@ -62,6 +65,19 @@ def parse_ratios_yaml(text: str) -> list[dict]:
     if not isinstance(data, dict) or "ratios" not in data:
         raise ValueError("YAML moet een top-level 'ratios' lijst bevatten.")
     return validate_ratios_config(data["ratios"])
+
+
+def parse_ratios_document_extras(text: str) -> dict:
+    """Read optional document-level settings from a ratios YAML body."""
+    data = yaml.safe_load(text)
+    if not isinstance(data, dict):
+        data = {}
+    specs = data.get("ratios") if isinstance(data.get("ratios"), list) else []
+    return {
+        "dashboard_ratio_count": _normalize_count(data.get("dashboard_ratio_count")),
+        "categories": _normalize_categories(data.get("categories"), specs),
+        "dashboard_key_ids": _normalize_key_ids(data.get("dashboard_key_ids")),
+    }
 
 
 def validate_ratios_config(raw: object) -> list[dict]:

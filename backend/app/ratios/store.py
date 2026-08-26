@@ -25,6 +25,14 @@ HISTORY_KEEP = 20
 
 _lock = threading.Lock()
 
+KNOWN_CATEGORIES = ("liquiditeit", "solvabiliteit", "rentabiliteit")
+DEFAULT_DASHBOARD_RATIO_COUNT = 3
+DEFAULT_DASHBOARD_KEY_IDS: dict[str, list[str]] = {
+    "liquiditeit": ["current_ratio", "quick_ratio", "net_working_capital"],
+    "solvabiliteit": ["solvability", "financial_independence", "debt_ratio"],
+    "rentabiliteit": ["rev", "rtv", "gross_margin"],
+}
+
 
 class StaleConfigError(Exception):
     """Client version does not match the active configuration version."""
@@ -110,14 +118,64 @@ def current_meta() -> dict:
     return {"version": 1, "updated_at": None}
 
 
-def load_active_specs() -> list[dict]:
+def load_active_document() -> dict:
     path = active_ratios_path()
     with path.open(encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
-    if not isinstance(data, dict):
-        return []
-    ratios = data.get("ratios", [])
+    return data if isinstance(data, dict) else {}
+
+
+def load_active_specs() -> list[dict]:
+    ratios = load_active_document().get("ratios", [])
     return ratios if isinstance(ratios, list) else []
+
+
+def _normalize_count(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return DEFAULT_DASHBOARD_RATIO_COUNT
+    return max(1, value)
+
+
+def _normalize_categories(raw: object, specs: list[dict]) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: str) -> None:
+        key = value.strip().lower()
+        if not key or key in seen:
+            return
+        seen.add(key)
+        ordered.append(key)
+
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str):
+                add(item)
+    for spec in specs:
+        category = spec.get("category")
+        if isinstance(category, str):
+            add(category)
+    extras = [item for item in ordered if item not in KNOWN_CATEGORIES]
+    known = [item for item in KNOWN_CATEGORIES if item in seen]
+    if not known and not extras:
+        return list(KNOWN_CATEGORIES)
+    return known + extras
+
+
+def _normalize_key_ids(raw: object) -> dict[str, list[str]]:
+    result = {key: list(ids) for key, ids in DEFAULT_DASHBOARD_KEY_IDS.items()}
+    if not isinstance(raw, dict):
+        return result
+    for key, value in raw.items():
+        if not isinstance(key, str) or not isinstance(value, list):
+            continue
+        ids = [
+            item.strip()
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+        result[key.strip().lower()] = ids
+    return result
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -127,11 +185,32 @@ def _atomic_write_text(path: Path, text: str) -> None:
     tmp.replace(path)
 
 
-def _dump_specs(specs: list[dict]) -> str:
+def _dump_document(
+    specs: list[dict],
+    *,
+    dashboard_ratio_count: int,
+    categories: list[str],
+    dashboard_key_ids: dict[str, list[str]],
+) -> str:
     return yaml.safe_dump(
-        {"ratios": specs},
+        {
+            "dashboard_ratio_count": dashboard_ratio_count,
+            "categories": categories,
+            "dashboard_key_ids": dashboard_key_ids,
+            "ratios": specs,
+        },
         allow_unicode=True,
         sort_keys=False,
+    )
+
+
+def _dump_specs(specs: list[dict]) -> str:
+    doc = load_active_document() if override_path().is_file() else {}
+    return _dump_document(
+        specs,
+        dashboard_ratio_count=_normalize_count(doc.get("dashboard_ratio_count")),
+        categories=_normalize_categories(doc.get("categories"), specs),
+        dashboard_key_ids=_normalize_key_ids(doc.get("dashboard_key_ids")),
     )
 
 
@@ -175,14 +254,44 @@ def _prune_history(directory: Path) -> None:
         old.with_suffix(".json").unlink(missing_ok=True)
 
 
-def persist_specs(specs: list[dict], *, expected_version: int | None) -> tuple[list[dict], dict]:
+def persist_specs(
+    specs: list[dict],
+    *,
+    expected_version: int | None,
+    dashboard_ratio_count: int | None = None,
+    categories: list[str] | None = None,
+    dashboard_key_ids: dict[str, list[str]] | None = None,
+) -> tuple[list[dict], dict]:
     """Write validated specs to the override file. Raises StaleConfigError on mismatch."""
     with _lock:
         meta = current_meta()
         if expected_version is not None and expected_version != meta["version"]:
             raise StaleConfigError(meta["version"])
+        current_doc = load_active_document() if override_path().is_file() else {}
+        count = _normalize_count(
+            dashboard_ratio_count
+            if dashboard_ratio_count is not None
+            else current_doc.get("dashboard_ratio_count")
+        )
+        cats = _normalize_categories(
+            categories if categories is not None else current_doc.get("categories"),
+            specs,
+        )
+        key_ids = _normalize_key_ids(
+            dashboard_key_ids
+            if dashboard_key_ids is not None
+            else current_doc.get("dashboard_key_ids")
+        )
         _snapshot_current()
-        _atomic_write_text(override_path(), _dump_specs(specs))
+        _atomic_write_text(
+            override_path(),
+            _dump_document(
+                specs,
+                dashboard_ratio_count=count,
+                categories=cats,
+                dashboard_key_ids=key_ids,
+            ),
+        )
         new_meta = {"version": meta["version"] + 1, "updated_at": _now_iso()}
         _write_meta(new_meta)
         return specs, new_meta
@@ -265,6 +374,7 @@ def restore_history(version: int, *, expected_version: int | None = None) -> tup
 
 
 def config_fields(specs: list[dict] | None = None) -> dict:
+    doc = load_active_document() if active_ratios_path().is_file() else {}
     payload = specs if specs is not None else load_active_specs()
     meta = current_meta()
     return {
@@ -272,4 +382,7 @@ def config_fields(specs: list[dict] | None = None) -> dict:
         "source": ratios_config_source(),
         "version": meta["version"],
         "updated_at": meta.get("updated_at"),
+        "dashboard_ratio_count": _normalize_count(doc.get("dashboard_ratio_count")),
+        "categories": _normalize_categories(doc.get("categories"), payload),
+        "dashboard_key_ids": _normalize_key_ids(doc.get("dashboard_key_ids")),
     }
