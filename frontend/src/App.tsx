@@ -15,7 +15,7 @@ import { RatioDashboard } from "./components/RatioDashboard";
 import { RatioSandbox } from "./components/RatioSandbox";
 import { SandboxIndicator } from "./components/SandboxIndicator";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { StatementTable } from "./components/StatementTable";
+import { StatementsPanel } from "./components/StatementsPanel";
 import { UploadZone } from "./components/UploadZone";
 import { ValidationPanel } from "./components/ValidationPanel";
 import { WarningBanners } from "./components/WarningBanners";
@@ -31,10 +31,7 @@ import type {
 const TABS: { id: Tab; label: string }[] = [
   { id: "ratios", label: "Ratio's" },
   { id: "sandbox", label: "Sandbox" },
-  { id: "balans_activa", label: "Balans activa" },
-  { id: "balans_passiva", label: "Balans passiva" },
-  { id: "resultaten", label: "Resultatenrekening" },
-  { id: "resultaatverwerking", label: "Resultaatverwerking" },
+  { id: "tables", label: "Tabellen" },
   { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
   { id: "settings", label: "Instellingen" },
@@ -270,67 +267,18 @@ function App() {
                 </div>
               ))}
 
-            {activeTab === "balans_activa" && (
-              <StatementTable
-                title="Balans activa"
-                lines={session.result.balance_assets}
+            {activeTab === "tables" && (
+              <StatementsPanel
+                key={analysisKey}
+                result={session.result}
                 amountFormat={amountFormat}
-                selectedCode={
-                  selection?.section === "balans_activa" ? selection.code : null
-                }
-                onSelectRow={(code) => handleStatementSelect("balans_activa", code)}
-                readOnly={readOnly}
-              />
-            )}
-            {activeTab === "balans_passiva" && (
-              <StatementTable
-                title="Balans passiva"
-                lines={session.result.balance_liabilities}
-                amountFormat={amountFormat}
-                selectedCode={
-                  selection?.section === "balans_passiva" ? selection.code : null
-                }
-                onSelectRow={(code) =>
-                  handleStatementSelect("balans_passiva", code)
-                }
-                readOnly={readOnly}
-              />
-            )}
-            {activeTab === "resultaten" && (
-              <StatementTable
-                title="Resultatenrekening"
-                lines={session.result.income_statement}
-                amountFormat={amountFormat}
-                selectedCode={
-                  selection?.section === "resultatenrekening"
-                    ? selection.code
-                    : null
-                }
-                onSelectRow={(code) =>
-                  handleStatementSelect("resultatenrekening", code)
-                }
-                readOnly={readOnly}
-              />
-            )}
-            {activeTab === "resultaatverwerking" && (
-              <StatementTable
-                title="Resultaatverwerking"
-                lines={session.result.appropriation_of_result ?? []}
-                amountFormat={amountFormat}
-                selectedCode={
-                  selection?.section === "resultaatverwerking"
-                    ? selection.code
-                    : null
-                }
-                onSelectRow={(code) =>
-                  handleStatementSelect("resultaatverwerking", code)
-                }
+                selection={selection}
+                onSelectRow={handleStatementSelect}
                 readOnly={readOnly}
               />
             )}
             {activeTab === "ratios" && (
               <div className="space-y-6">
-                <ValidationPanel validations={session.displayedValidations} />
                 <RatioDashboard
                   key={analysisKey}
                   result={session.result}
@@ -339,6 +287,7 @@ function App() {
                   updating={session.recomputeState === "updating"}
                   staleFailure={session.recomputeState === "failed"}
                 />
+                <ValidationPanel validations={session.displayedValidations} />
               </div>
             )}
           </>

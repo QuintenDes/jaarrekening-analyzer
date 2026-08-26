@@ -146,10 +146,7 @@ export interface SourceSelection {
 
 export type Tab =
   | "pdf_scan"
-  | "balans_activa"
-  | "balans_passiva"
-  | "resultaten"
-  | "resultaatverwerking"
+  | "tables"
   | "ratios"
   | "sandbox"
   | "ratio_config"
