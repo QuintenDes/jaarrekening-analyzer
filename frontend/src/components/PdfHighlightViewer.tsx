@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
@@ -86,21 +87,6 @@ function overlayStyleFor(
   };
 }
 
-function backChipStyleFor(
-  h: ScanHighlight,
-  pageSize: PageSize | undefined,
-): CSSProperties {
-  if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
-    return { display: "none" };
-  }
-  const midY = ((h.top + h.bottom) / 2 / pageSize.height) * 100;
-  return {
-    left: "8px",
-    top: `${midY}%`,
-    transform: "translateY(-50%)",
-  };
-}
-
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -122,6 +108,10 @@ export function PdfHighlightViewer({
   const [viewportWidth, setViewportWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pageInput, setPageInput] = useState("1");
+  const [backChipPos, setBackChipPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const jumpedForPdfRef = useRef<PDFDocumentProxy | null>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
   const pendingScrollRestoreRef = useRef<{ rx: number; ry: number } | null>(
@@ -282,21 +272,47 @@ export function PdfHighlightViewer({
     node.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   }, [selection, pageIndex, rendering]);
 
-  const pageSize = pageSizes[pageIndex];
+  useEffect(() => {
+    const sel = selection;
+    if (!onBack || !sel || rendering || pageIndex !== sel.page) {
+      setBackChipPos(null);
+      return;
+    }
+    const chipKey = `${sel.section}:${sel.code}:${sel.occurrenceIndex}`;
 
-  const selectedHighlight = useMemo(() => {
-    if (!selection) return null;
-    return (
-      pageHighlights.find((h) => {
-        const occ = occurrenceIndexOf(highlights, h);
-        return (
-          selection.section === h.section &&
-          selection.code === h.code &&
-          selection.occurrenceIndex === occ
-        );
-      }) ?? null
-    );
-  }, [selection, pageHighlights, highlights]);
+    function update() {
+      const node = highlightRefs.current[chipKey];
+      const viewport = viewportRef.current;
+      if (!node || !viewport) return;
+      const row = node.getBoundingClientRect();
+      const box = viewport.getBoundingClientRect();
+      setBackChipPos({
+        top: row.top + row.height / 2,
+        left: box.left - 8,
+      });
+    }
+
+    update();
+    const raf = requestAnimationFrame(() => {
+      update();
+      requestAnimationFrame(update);
+    });
+    const later = window.setTimeout(update, 400);
+    const viewport = viewportRef.current;
+    viewport?.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = viewport ? new ResizeObserver(update) : null;
+    if (viewport && observer) observer.observe(viewport);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(later);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [onBack, selection, pageIndex, rendering]);
+
+  const pageSize = pageSizes[pageIndex];
 
   function goToPage(next: number) {
     if (totalPages <= 0) return;
@@ -447,7 +463,7 @@ export function PdfHighlightViewer({
         )}
         <div className="relative inline-block min-w-full">
           <canvas ref={canvasRef} className="block h-auto max-w-none" />
-          <div className="absolute inset-0 overflow-visible">
+          <div className="absolute inset-0">
             {pageHighlights.map((h, index) => {
               const occ = occurrenceIndexOf(highlights, h);
               const selected =
@@ -477,20 +493,27 @@ export function PdfHighlightViewer({
                 />
               );
             })}
-            {onBack && selectedHighlight ? (
-              <button
-                type="button"
-                className="absolute z-30 inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
-                style={backChipStyleFor(selectedHighlight, pageSize)}
-                onClick={onBack}
-              >
-                <ChevronLeftIcon />
-                {backLabel ?? "Terug"}
-              </button>
-            ) : null}
           </div>
         </div>
       </div>
+      {onBack && backChipPos
+        ? createPortal(
+            <button
+              type="button"
+              className="fixed z-40 inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
+              style={{
+                top: backChipPos.top,
+                left: backChipPos.left,
+                transform: "translate(-100%, -50%)",
+              }}
+              onClick={onBack}
+            >
+              <ChevronLeftIcon />
+              {backLabel ?? "Terug"}
+            </button>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
