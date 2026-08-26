@@ -5,6 +5,7 @@ import type {
   StatementLine,
   StatementSectionId,
 } from "../types";
+import { nbbGlossaryLabel } from "../i18n/marLabels";
 
 export const SECTION_ORDER: StatementSectionId[] = [
   "balans_activa",
@@ -124,7 +125,7 @@ export function matchesSearch(entry: SourceEntry, query: string): boolean {
     entry.amount === null || entry.amount === undefined
       ? ""
       : String(entry.amount);
-  const hay = `${entry.label} ${entry.code} ${amountText}`.toLowerCase();
+  const hay = `${entry.label} ${entry.code} ${amountText} ${nbbGlossaryLabel(entry.code) ?? ""}`.toLowerCase();
   return hay.includes(q);
 }
 

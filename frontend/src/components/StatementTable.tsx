@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "react";
-import { nbbGlossaryLabel } from "../i18n/marLabels";
+import {
+  cleanStatementLabel,
+  glossaryWhenDifferent,
+} from "../i18n/marLabels";
 import type { AmountFormat, StatementLine } from "../types";
 import { formatAmount } from "../utils/format";
 import { assignLineDepths } from "../utils/marDepth";
+import { MarEmblem } from "./MarEmblem";
 
 interface StatementTableProps {
   title: string;
@@ -14,10 +18,6 @@ interface StatementTableProps {
 }
 
 const INDENT_CLASS = ["pl-4", "pl-8", "pl-12", "pl-16"] as const;
-
-function normalizeLabel(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 /**
  * Presentational table: toont StatementLine[] zonder API-calls.
@@ -71,11 +71,8 @@ export function StatementTable({
                   ? INDENT_CLASS[Math.min(depth, INDENT_CLASS.length) - 1]
                   : "pl-4";
               const selected = selectedCode === line.code;
-              const glossary = nbbGlossaryLabel(line.code);
-              const showGlossary =
-                Boolean(glossary) &&
-                normalizeLabel(glossary ?? "") !==
-                  normalizeLabel(line.label || "");
+              const printedLabel = cleanStatementLabel(line.label || "");
+              const glossary = glossaryWhenDifferent(line.code, printedLabel);
 
               return (
                 <tr
@@ -102,12 +99,10 @@ export function StatementTable({
                       emphasize ? "font-semibold text-slate-900" : "text-slate-800"
                     }`}
                   >
-                    <span>{line.label || "—"}</span>
-                    {showGlossary ? (
+                    <span>{printedLabel || "—"}</span>
+                    {glossary ? (
                       <span className="mt-1 flex items-baseline gap-1.5 text-xs font-normal text-slate-500">
-                        <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                          MAR
-                        </span>
+                        <MarEmblem />
                         <span>{glossary}</span>
                       </span>
                     ) : null}

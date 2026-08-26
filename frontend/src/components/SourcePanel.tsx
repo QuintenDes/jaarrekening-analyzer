@@ -6,15 +6,20 @@ import {
   selectionForEntry,
   type SourceEntry,
 } from "../analysis/sources";
-import { nbbGlossaryLabel } from "../i18n/marLabels";
+import {
+  cleanStatementLabel,
+  nbbGlossaryLabel,
+} from "../i18n/marLabels";
 import type { AmountFormat, SourceSelection } from "../types";
 import { formatAmount } from "../utils/format";
+import { MarEmblem } from "./MarEmblem";
 
 interface SourcePanelProps {
   entries: SourceEntry[];
   selection: SourceSelection | null;
   amountFormat: AmountFormat;
   onSelect: (selection: SourceSelection) => void;
+  onHide?: () => void;
 }
 
 export function SourcePanel({
@@ -22,6 +27,7 @@ export function SourcePanel({
   selection,
   amountFormat,
   onSelect,
+  onHide,
 }: SourcePanelProps) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -42,7 +48,18 @@ export function SourcePanel({
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="border-b border-slate-200 px-3 py-2">
-        <p className="text-sm font-semibold text-slate-800">Bronnen</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-800">Bronnen</p>
+          {onHide ? (
+            <button
+              type="button"
+              onClick={onHide}
+              className="hidden shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:inline-flex"
+            >
+              Verberg bronnen
+            </button>
+          ) : null}
+        </div>
         <input
           type="search"
           value={query}
@@ -61,23 +78,28 @@ export function SourcePanel({
               {group.items.map((entry) => {
                 const selected = selection?.section === entry.section && selection.code === entry.code;
                 const open = expanded.has(entry.key);
-                const glossary = nbbGlossaryLabel(entry.code);
+                const printedLabel = cleanStatementLabel(entry.label);
+                const official = nbbGlossaryLabel(entry.code);
                 return (
                   <li key={entry.key} className="border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => onSelect(selectionForEntry(entry))}
-                      className={`flex w-full items-baseline gap-2 px-3 py-2 text-left text-sm ${
+                      className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm ${
                         selected ? "bg-emerald-50" : "hover:bg-slate-50"
                       }`}
                     >
-                      <span className="shrink-0 font-mono text-xs text-slate-600">
-                        {entry.code}
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-slate-800">
+                          {printedLabel || "—"}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-baseline gap-1.5 text-xs font-normal text-slate-500">
+                          <MarEmblem />
+                          {official ? <span>{official}</span> : null}
+                          <span className="font-mono text-slate-600">{entry.code}</span>
+                        </span>
                       </span>
-                      <span className="min-w-0 flex-1 font-medium text-slate-800">
-                        {glossary ?? entry.label}
-                      </span>
-                      <span className="shrink-0 font-mono text-xs text-slate-600">
+                      <span className="shrink-0 pt-0.5 font-mono text-xs text-slate-600">
                         {formatAmount(entry.amount, amountFormat)}
                       </span>
                     </button>

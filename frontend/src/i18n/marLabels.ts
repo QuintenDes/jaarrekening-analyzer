@@ -222,9 +222,39 @@ export const MAR_LABELS: Record<string, MarLabel> = {
   "697": L("Other allocations", "Andere rechthebbenden", "Autres allocataires"),
 };
 
+/** NBB sign-column tokens that are not part of the omschrijving. */
+const SIGN_COLUMN_TOKEN =
+  /\(\s*\+\s*\)\s*\/\s*\(\s*-\s*\)|\(\s*\+\s*\)|\(\s*-\s*\)/g;
+
 /** Trim and collapse spaces around `/` so "130 / 1" matches key "130/1". */
 export function normalizeMarCode(code: string): string {
   return code.trim().replace(/\s*\/\s*/g, "/");
+}
+
+/** Drop `(+)/(-)` (and `(+)`, `(-)`) left over from the PDF code column. */
+export function cleanStatementLabel(label: string): string {
+  return label
+    .replace(SIGN_COLUMN_TOKEN, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function foldLabel(value: string): string {
+  return cleanStatementLabel(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/** True when the PDF omschrijving is the same name as the official MAR label. */
+export function statementLabelMatchesGlossary(
+  pdfLabel: string,
+  glossary: string,
+): boolean {
+  const printed = foldLabel(pdfLabel);
+  const official = foldLabel(glossary);
+  return Boolean(printed) && printed === official;
 }
 
 function lookupEntry(code: string): MarLabel | undefined {
@@ -242,4 +272,19 @@ function lookupEntry(code: string): MarLabel | undefined {
 export function nbbGlossaryLabel(code: string): string | null {
   const entry = lookupEntry(code);
   return entry?.nl ?? null;
+}
+
+/**
+ * Official MAR wording to show under the PDF omschrijving.
+ * Only when the exact code is known and the printed label is a different name
+ * (sign-column tokens and punctuation do not count as a difference).
+ */
+export function glossaryWhenDifferent(
+  code: string,
+  pdfLabel: string,
+): string | null {
+  const glossary = nbbGlossaryLabel(code);
+  if (!glossary) return null;
+  if (statementLabelMatchesGlossary(pdfLabel, glossary)) return null;
+  return glossary;
 }

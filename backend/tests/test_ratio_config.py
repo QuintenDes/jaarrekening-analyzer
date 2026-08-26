@@ -364,3 +364,24 @@ def test_letter_suffix_and_range_codes() -> None:
     assert parse_line("Overgedragen winst vorig 14P 100 80", "balans_passiva").code == "14P"
     assert parse_line("Verbonden ondernemingen 280/1 50 40", "balans_activa").code == "280/1"
     assert parse_line("Totaal der activa 20/58 1.000 900", "balans_activa").code == "20/58"
+
+
+def test_parse_strips_sign_column_from_omschrijving() -> None:
+    from app.pdf.extractor import parse_line
+
+    row = parse_line(
+        "Overgedragen winst (verlies) (+)/(-) 14 1.000 900",
+        "balans_passiva",
+    )
+    assert row is not None
+    assert row.code == "14"
+    assert row.omschrijving == "Overgedragen winst (verlies)"
+    assert "(+)" not in row.omschrijving
+    assert "(-)" not in row.omschrijving
+
+    minus_only = parse_line(
+        "Waardeverminderingen (-) 651 1.000 900",
+        "resultatenrekening",
+    )
+    assert minus_only is not None
+    assert minus_only.omschrijving == "Waardeverminderingen"

@@ -64,6 +64,36 @@ function selectionFitKey(selection: SourceSelection): string {
   return `${selection.section}:${selection.code}:${selection.occurrenceIndex}:${selection.page}`;
 }
 
+function overlayStyleFor(
+  h: ScanHighlight,
+  pageSize: PageSize | undefined,
+): CSSProperties {
+  if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
+    return { display: "none" };
+  }
+  return {
+    left: `${(h.x0 / pageSize.width) * 100}%`,
+    top: `${(h.top / pageSize.height) * 100}%`,
+    width: `${(Math.max(h.x1 - h.x0, 1) / pageSize.width) * 100}%`,
+    height: `${(Math.max(h.bottom - h.top, 1) / pageSize.height) * 100}%`,
+    backgroundColor: SECTION_COLORS[h.section] ?? "rgba(100, 116, 139, 0.35)",
+  };
+}
+
+function backChipStyle(h: ScanHighlight, pageSize: PageSize): CSSProperties {
+  if (pageSize.width <= 0 || pageSize.height <= 0) {
+    return { display: "none" };
+  }
+  const leftPct = (h.x0 / pageSize.width) * 100;
+  const topPct = (h.top / pageSize.height) * 100;
+  const heightPct = (Math.max(h.bottom - h.top, 1) / pageSize.height) * 100;
+  return {
+    left: `${leftPct}%`,
+    top: `${topPct + heightPct / 2}%`,
+    transform: "translate(8px, -50%)",
+  };
+}
+
 export function PdfHighlightViewer({
   pdfUrl,
   highlights,
@@ -101,6 +131,20 @@ export function PdfHighlightViewer({
     () => highlights.filter((h) => h.page === pageIndex),
     [highlights, pageIndex],
   );
+
+  const selectedHighlight = useMemo(() => {
+    if (!selection) return null;
+    return (
+      pageHighlights.find((h) => {
+        const occ = occurrenceIndexOf(highlights, h);
+        return (
+          selection.section === h.section &&
+          selection.code === h.code &&
+          selection.occurrenceIndex === occ
+        );
+      }) ?? null
+    );
+  }, [selection, pageHighlights, highlights]);
 
   const totalPages = pageCount ?? pdf?.numPages ?? 0;
 
@@ -247,19 +291,6 @@ export function PdfHighlightViewer({
 
   const pageSize = pageSizes[pageIndex];
 
-  function overlayStyle(h: ScanHighlight): CSSProperties {
-    if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
-      return { display: "none" };
-    }
-    return {
-      left: `${(h.x0 / pageSize.width) * 100}%`,
-      top: `${(h.top / pageSize.height) * 100}%`,
-      width: `${(Math.max(h.x1 - h.x0, 1) / pageSize.width) * 100}%`,
-      height: `${(Math.max(h.bottom - h.top, 1) / pageSize.height) * 100}%`,
-      backgroundColor: SECTION_COLORS[h.section] ?? "rgba(100, 116, 139, 0.35)",
-    };
-  }
-
   function goToPage(next: number) {
     if (totalPages <= 0) return;
     const clamped = Math.min(totalPages - 1, Math.max(0, next));
@@ -313,17 +344,17 @@ export function PdfHighlightViewer({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <button
             type="button"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
             disabled={pageIndex <= 0}
             onClick={() => goToPage(pageIndex - 1)}
           >
             Vorige
           </button>
-          <label className="flex items-center gap-1 text-sm text-slate-600">
+          <label className="flex shrink-0 items-center gap-1 text-sm text-slate-600">
             Pagina
             <input
               type="number"
@@ -341,14 +372,14 @@ export function PdfHighlightViewer({
           </label>
           <button
             type="button"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
             disabled={totalPages > 0 ? pageIndex >= totalPages - 1 : true}
             onClick={() => goToPage(pageIndex + 1)}
           >
             Volgende
           </button>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex shrink-0 items-center gap-2 text-sm">
           <button
             type="button"
             className="rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50"
@@ -369,7 +400,7 @@ export function PdfHighlightViewer({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         {scannedPages.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {scannedPages.map((page) => (
@@ -402,18 +433,6 @@ export function PdfHighlightViewer({
             Pagina laden…
           </div>
         )}
-        {onBack && (
-          <button
-            type="button"
-            className="absolute top-2 right-2 z-30 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
-            onClick={(event) => {
-              event.stopPropagation();
-              onBack();
-            }}
-          >
-            {backLabel}
-          </button>
-        )}
         <div className="relative inline-block min-w-full">
           <canvas ref={canvasRef} className="block h-auto max-w-none" />
           <div className="absolute inset-0">
@@ -441,11 +460,24 @@ export function PdfHighlightViewer({
                         ? "ring-1 ring-black/10"
                         : "opacity-70"
                   }`}
-                  style={overlayStyle(h)}
+                  style={overlayStyleFor(h, pageSize)}
                   onClick={() => onSelectHighlight(h, occ)}
                 />
               );
             })}
+            {onBack && selectedHighlight && pageSize ? (
+              <button
+                type="button"
+                className="absolute z-30 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
+                style={backChipStyle(selectedHighlight, pageSize)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onBack();
+                }}
+              >
+                {backLabel}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

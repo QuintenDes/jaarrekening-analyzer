@@ -46,6 +46,8 @@ PLAIN_CODE_AMOUNTS = re.compile(
 TOEL_AT_END = re.compile(r"(\d+(?:\.\d+)*(?:/\d+(?:\.\d+)*)?)$")  # toelichtingsnr.
 # Tekenkolom vóór de MAR-code: (+)/(-), (-) of (+)
 SIGN_PREFIX = re.compile(r"^(?:\(\+\)/\(-\)|\(-\)|\(\+\))\s*")
+# Same tokens anywhere in a merged omschrijving (not part of the printed name).
+SIGN_COLUMN_TOKEN = re.compile(r"\(\s*\+\s*\)\s*/\s*\(\s*-\s*\)|\(\s*\+\s*\)|\(\s*-\s*\)")
 CODE_FIRST_LINE = re.compile(
     r"^(?:(\d+(?:\.\d+)+)\s+)?"  # optionele toelichting vooraan
     rf"\(?({MAR_CODE})\)?\s+"
@@ -140,6 +142,12 @@ CODE_ONLY_LINE = re.compile(rf"^({MAR_CODE})$")
 def normalize_mar_code(code: str) -> str:
     """Collapse spaces around `/` so extracted '130 / 1' stores as '130/1'."""
     return _SLASH_SPACES.sub("/", code.strip())
+
+
+def clean_omschrijving(text: str) -> str:
+    """Drop NBB sign-column tokens such as (+)/(-) from the printed label."""
+    cleaned = SIGN_COLUMN_TOKEN.sub(" ", text)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _is_code_only_fragment(text: str) -> bool:
@@ -461,7 +469,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
         code = normalize_mar_code(paren_match.group(1))
         raw_curr = paren_match.group(2)
         raw_prev = paren_match.group(3)
-        omschrijving = stripped[: paren_match.start()].rstrip()
+        omschrijving = clean_omschrijving(stripped[: paren_match.start()].rstrip())
         if require_description and not omschrijving:
             return None
         return Row(
@@ -500,7 +508,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
         plain_match = PLAIN_CODE_AMOUNTS.search(stripped)
         if plain_match:
             code = normalize_mar_code(plain_match.group(1))
-            omschrijving = stripped[: plain_match.start()].rstrip()
+            omschrijving = clean_omschrijving(stripped[: plain_match.start()].rstrip())
             if require_description and not omschrijving:
                 return None
             raw_curr = plain_match.group(2)
@@ -529,7 +537,7 @@ def parse_line(line: str, section: str, *, require_description: bool = True) -> 
         toelichting = toel_match.group(1)
         rest = rest[: toel_match.start()].rstrip()
 
-    omschrijving = rest.strip()
+    omschrijving = clean_omschrijving(rest)
     if require_description and not omschrijving:
         return None
 
@@ -642,7 +650,9 @@ def extract_rows_from_lines(
         row = parse_line(candidate, current_section)
         if row is not None:
             if pending_description and not row.omschrijving.startswith(pending_description):
-                row.omschrijving = f"{pending_description} {row.omschrijving}".strip()
+                row.omschrijving = clean_omschrijving(
+                    f"{pending_description} {row.omschrijving}"
+                )
             pending_description = ""
             if line.page is not None:
                 row = realign_single_amount_by_geometry(
@@ -660,7 +670,7 @@ def extract_rows_from_lines(
         code_first = parse_code_first_line(stripped, current_section)
         if code_first is not None:
             if pending_description:
-                code_first.omschrijving = pending_description
+                code_first.omschrijving = clean_omschrijving(pending_description)
                 pending_description = ""
             if line.page is not None:
                 code_first = realign_single_amount_by_geometry(
@@ -769,7 +779,7 @@ def row_to_statement(row: Row) -> StatementLine:
     """Map intern Row-model naar API StatementLine (Nederlands → Engels)."""
     return StatementLine(
         section=row.sectie,
-        label=row.omschrijving,
+        label=clean_omschrijving(row.omschrijving),
         footnote=row.toelichting,
         code=normalize_mar_code(row.code),
         current=row.boekjaar,
