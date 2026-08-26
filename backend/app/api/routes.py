@@ -231,7 +231,7 @@ def parse_ratios(body: dict) -> RatiosConfigResponse:
 
 @router.post("/ratios/compute", response_model=RatioComputeResponse)
 def compute_ratios_endpoint(body: RatioComputeRequest) -> RatioComputeResponse:
-    """Herbereken ratio's op bestaande staten (sandbox)."""
+    """Herbereken ratio's op bestaande staten."""
     ratio_specs: list[dict] | None = None
     if body.ratios is not None:
         try:

@@ -59,8 +59,6 @@ De gebundelde `backend/config/ratios.yaml` is de standaard. Na de eerste start l
 
 Schrijfbewerkingen gebruiken header `X-Admin-Token`. Zet `ADMIN_TOKEN=<random-secret>` in de omgeving (zie `.env.example`). Er is geen standaardtoken.
 
-Sandbox blijft lokaal (browser) en overschrijft de live configuratie niet automatisch.
-
 ## Structuur (nu)
 
 ```

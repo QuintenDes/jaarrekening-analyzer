@@ -9,39 +9,23 @@ import {
   loadCachedAnalysis,
   saveCachedAnalysis,
 } from "../persistence/analysisCache";
-import { SANDBOX_DRAFT_KEY } from "../persistence/preferences";
 import type {
   AnalysisResult,
   AnalysisStatus,
   AnalyzeJobStatus,
   RatioResult,
-  RatioSpec,
 } from "../types";
 import { hashFile } from "../utils/hash";
-import { normalizeSpec } from "../utils/ratiosYaml";
 
 const POLL_MS = 400;
 const RECOMPUTE_DEBOUNCE_MS = 400;
 
 export type RecomputeState = "idle" | "updating" | "failed";
 
-function loadSandboxDraft(): RatioSpec[] {
-  const raw =
-    localStorage.getItem(SANDBOX_DRAFT_KEY) ??
-    sessionStorage.getItem(SANDBOX_DRAFT_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as RatioSpec[];
-    const specs = Array.isArray(parsed) ? parsed.map((s) => normalizeSpec(s)) : [];
-    if (specs.length > 0) {
-      localStorage.setItem(SANDBOX_DRAFT_KEY, JSON.stringify(specs));
-      sessionStorage.removeItem(SANDBOX_DRAFT_KEY);
-      sessionStorage.removeItem("ratioSandboxEnabled");
-    }
-    return specs;
-  } catch {
-    return [];
-  }
+function clearLegacySandboxStorage() {
+  localStorage.removeItem("ratioSandboxDraft");
+  sessionStorage.removeItem("ratioSandboxDraft");
+  sessionStorage.removeItem("ratioSandboxEnabled");
 }
 
 export function useAnalysisSession() {
@@ -58,8 +42,6 @@ export function useAnalysisSession() {
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [restoreReady, setRestoreReady] = useState(false);
 
-  const [sandboxEnabled, setSandboxEnabled] = useState(false);
-  const [sandboxDraft, setSandboxDraft] = useState<RatioSpec[]>(loadSandboxDraft);
   const [recomputeState, setRecomputeState] = useState<RecomputeState>("idle");
   const [recomputeError, setRecomputeError] = useState<string | null>(null);
   const [overlayRatios, setOverlayRatios] = useState<RatioResult[] | null>(null);
@@ -101,6 +83,7 @@ export function useAnalysisSession() {
   useEffect(() => {
     let cancelled = false;
     sessionStorage.removeItem("analysisResult");
+    clearLegacySandboxStorage();
     (async () => {
       try {
         const cached = await loadCachedAnalysis();
@@ -127,12 +110,6 @@ export function useAnalysisSession() {
       revokePdf();
     };
   }, [revokePdf]);
-
-  useEffect(() => {
-    if (sandboxDraft.length > 0) {
-      localStorage.setItem(SANDBOX_DRAFT_KEY, JSON.stringify(sandboxDraft));
-    }
-  }, [sandboxDraft]);
 
   const stopPolling = useCallback(() => {
     if (pollTimerRef.current) {
@@ -244,10 +221,8 @@ export function useAnalysisSession() {
       setOverlayValidations(null);
       setRecomputeState("idle");
 
-      const override =
-        sandboxEnabled && sandboxDraft.length > 0 ? sandboxDraft : undefined;
       try {
-        const created = await startAnalyzeJob(file, override);
+        const created = await startAnalyzeJob(file);
         jobIdRef.current = created.job_id;
         void pollJob(created.job_id, file);
       } catch (err) {
@@ -257,7 +232,7 @@ export function useAnalysisSession() {
         setStale(false);
       }
     },
-    [pollJob, sandboxDraft, sandboxEnabled, setPdfFromBlob, stopPolling],
+    [pollJob, setPdfFromBlob, stopPolling],
   );
 
   const cancelAnalysis = useCallback(async () => {
@@ -293,7 +268,7 @@ export function useAnalysisSession() {
   }, [pdfFile, startAnalysis]);
 
   const runRecompute = useCallback(
-    (draft: RatioSpec[], enabled: boolean, analysis: AnalysisResult) => {
+    (analysis: AnalysisResult) => {
       if (recomputeTimerRef.current) {
         window.clearTimeout(recomputeTimerRef.current);
       }
@@ -307,7 +282,6 @@ export function useAnalysisSession() {
               balance_assets: analysis.balance_assets,
               balance_liabilities: analysis.balance_liabilities,
               income_statement: analysis.income_statement,
-              ratios: enabled && draft.length > 0 ? draft : undefined,
             });
             if (recomputeGenRef.current !== gen) return;
             setOverlayRatios(payload.ratios);
@@ -340,35 +314,11 @@ export function useAnalysisSession() {
     [contentHash, pdfFile],
   );
 
-  const setSandboxEnabledAndMaybeRecompute = useCallback(
-    (enabled: boolean) => {
-      setSandboxEnabled(enabled);
-      if (status === "completed" && !stale && result) {
-        runRecompute(sandboxDraft, enabled, result);
-      }
-    },
-    [result, runRecompute, sandboxDraft, stale, status],
-  );
-
-  const setSandboxDraftAndMaybeRecompute = useCallback(
-    (updater: RatioSpec[] | ((current: RatioSpec[]) => RatioSpec[])) => {
-      setSandboxDraft((current) => {
-        const next = typeof updater === "function" ? updater(current) : updater;
-        if (sandboxEnabled && status === "completed" && !stale && resultRef.current) {
-          runRecompute(next, true, resultRef.current);
-        }
-        return next;
-      });
-    },
-    [runRecompute, sandboxEnabled, stale, status],
-  );
-
   const refreshLiveRatios = useCallback(() => {
-    if (sandboxEnabled) return;
     if (status === "completed" && !stale && resultRef.current) {
-      runRecompute(sandboxDraft, false, resultRef.current);
+      runRecompute(resultRef.current);
     }
-  }, [runRecompute, sandboxDraft, sandboxEnabled, stale, status]);
+  }, [runRecompute, stale, status]);
 
   const displayedRatios = overlayRatios ?? result?.ratios ?? [];
   const displayedValidations = overlayValidations ?? result?.validations ?? [];
@@ -389,10 +339,6 @@ export function useAnalysisSession() {
     startAnalysis,
     cancelAnalysis,
     retryAnalysis,
-    sandboxEnabled,
-    sandboxDraft,
-    setSandboxEnabled: setSandboxEnabledAndMaybeRecompute,
-    setSandboxDraft: setSandboxDraftAndMaybeRecompute,
     refreshLiveRatios,
     recomputeState,
     recomputeError,

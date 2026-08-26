@@ -65,7 +65,7 @@ def parse_ratios_yaml(text: str) -> list[dict]:
 
 
 def validate_ratios_config(raw: object) -> list[dict]:
-    """Valideer ratio-specs (van YAML of sandbox JSON). Gooit ValueError bij fouten."""
+    """Valideer ratio-specs (van YAML of JSON). Gooit ValueError bij fouten."""
     if not isinstance(raw, list):
         raise ValueError("ratios moet een lijst zijn.")
     if len(raw) == 0:

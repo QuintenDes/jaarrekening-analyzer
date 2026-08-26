@@ -57,7 +57,7 @@ def analyze_pdf(
 ) -> AnalysisResult:
     """Voer de volledige analyse uit op ruwe PDF-bytes.
 
-    ratio_specs: optionele sandbox-override; None = ratios.yaml op schijf.
+    ratio_specs: optionele override; None = ratios.yaml op schijf.
     """
 
     progress: Callable[[StageId], None] = on_progress or _noop_progress

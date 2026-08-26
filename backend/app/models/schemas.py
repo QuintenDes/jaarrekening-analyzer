@@ -21,7 +21,7 @@ class StatementLine(BaseModel):
 
 
 class RatioSpec(BaseModel):
-    """Config-entry voor één ratio (spiegel van ratios.yaml / sandbox)."""
+    """Config-entry voor één ratio (spiegel van ratios.yaml)."""
 
     id: str
     name: str
@@ -96,7 +96,7 @@ class PageSize(BaseModel):
 
 
 class RatioComputeRequest(BaseModel):
-    """Herbereken ratio's op bestaande staten (sandbox, zonder PDF opnieuw te parsen)."""
+    """Herbereken ratio's op bestaande staten (zonder PDF opnieuw te parsen)."""
 
     balance_assets: list[StatementLine]
     balance_liabilities: list[StatementLine]

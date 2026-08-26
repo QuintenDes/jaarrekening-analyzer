@@ -8,7 +8,7 @@ export interface StatementLine {
   previous: number | null; // bedrag vorig boekjaar in EUR
 }
 
-/** Config-entry voor één ratio (spiegel van ratios.yaml / sandbox). */
+/** Config-entry voor één ratio (spiegel van ratios.yaml). */
 export interface RatioSpec {
   id: string;
   name: string;
@@ -148,6 +148,5 @@ export type Tab =
   | "pdf_scan"
   | "tables"
   | "ratios"
-  | "sandbox"
   | "ratio_config"
   | "settings";

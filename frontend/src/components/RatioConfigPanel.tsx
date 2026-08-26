@@ -238,8 +238,8 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold text-slate-800">Ratio-configuratie</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Wijzigingen worden op de server bewaard en gelden voor iedereen zolang
-          Sandbox uit staat. Geen Docker-rebuild nodig.
+          Wijzigingen worden op de server bewaard en gelden voor iedereen.
+          Geen Docker-rebuild nodig.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="block text-xs font-medium text-slate-600">

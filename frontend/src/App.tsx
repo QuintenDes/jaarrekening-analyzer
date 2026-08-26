@@ -5,15 +5,12 @@ import {
   selectionForEntry,
 } from "./analysis/sources";
 import { useAnalysisSession } from "./analysis/useAnalysisSession";
-import { getRatiosConfig } from "./api/client";
 import { AmountFormatToggle } from "./components/AmountFormatToggle";
 import { AnalysisErrorCard } from "./components/AnalysisErrorCard";
 import { PdfWorkspace } from "./components/PdfWorkspace";
 import { ProcessingPanel } from "./components/ProcessingPanel";
 import { RatioConfigPanel } from "./components/RatioConfigPanel";
 import { RatioDashboard } from "./components/RatioDashboard";
-import { RatioSandbox } from "./components/RatioSandbox";
-import { SandboxIndicator } from "./components/SandboxIndicator";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { StatementsPanel } from "./components/StatementsPanel";
 import { HeaderUploadButton, UploadZone } from "./components/UploadZone";
@@ -22,7 +19,6 @@ import { WarningBanners } from "./components/WarningBanners";
 import { loadAmountFormat, saveAmountFormat } from "./persistence/preferences";
 import type {
   AmountFormat,
-  RatioSpec,
   SourceSelection,
   StatementSectionId,
   Tab,
@@ -30,7 +26,6 @@ import type {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "ratios", label: "Ratio's" },
-  { id: "sandbox", label: "Sandbox" },
   { id: "tables", label: "Tabellen" },
   { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
@@ -42,7 +37,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [amountFormat, setAmountFormat] = useState<AmountFormat>(loadAmountFormat);
   const [selection, setSelection] = useState<SourceSelection | null>(null);
-  const [sandboxDefaults, setSandboxDefaults] = useState<RatioSpec[] | null>(null);
 
   const analyzing = session.status === "analyzing";
   const showResults =
@@ -60,18 +54,6 @@ function App() {
   useEffect(() => {
     saveAmountFormat(amountFormat);
   }, [amountFormat]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getRatiosConfig()
-      .then((specs) => {
-        if (!cancelled) setSandboxDefaults(specs);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const analysisKey = useMemo(
     () => session.contentHash ?? session.pdfFile?.name ?? "none",
@@ -124,12 +106,6 @@ function App() {
           <h1 className="text-2xl font-bold text-slate-900">
             Jaarrekening Analyzer
           </h1>
-          <SandboxIndicator
-            enabled={session.sandboxEnabled}
-            draft={session.sandboxDraft}
-            defaults={sandboxDefaults}
-            onOpenSandbox={() => setActiveTab("sandbox")}
-          />
           {(hasDocument || showResults) && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <HeaderUploadButton onFile={session.startAnalysis} />
@@ -182,7 +158,6 @@ function App() {
         <div className="flex flex-wrap items-center gap-2">
           {TABS.filter(
             (tab) =>
-              tab.id === "sandbox" ||
               tab.id === "settings" ||
               tab.id === "ratio_config" ||
               showResults,
@@ -191,10 +166,6 @@ function App() {
               key={tab.id}
               type="button"
               onClick={() => {
-                if (tab.id === "sandbox" && activeTab === "sandbox") {
-                  setActiveTab(session.result ? "ratios" : null);
-                  return;
-                }
                 setActiveTab(tab.id);
               }}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -224,19 +195,7 @@ function App() {
           <RatioConfigPanel
             onLiveConfigApplied={() => {
               session.refreshLiveRatios();
-              void getRatiosConfig()
-                .then((specs) => setSandboxDefaults(specs))
-                .catch(() => undefined);
             }}
-          />
-        )}
-
-        {activeTab === "sandbox" && (
-          <RatioSandbox
-            enabled={session.sandboxEnabled}
-            onEnabledChange={session.setSandboxEnabled}
-            draft={session.sandboxDraft}
-            onDraftChange={session.setSandboxDraft}
           />
         )}
 
@@ -248,8 +207,7 @@ function App() {
               </div>
             )}
 
-            {activeTab !== "sandbox" &&
-              activeTab !== "settings" &&
+            {activeTab !== "settings" &&
               activeTab !== "ratio_config" && (
               <WarningBanners warnings={session.result.warnings} />
             )}
