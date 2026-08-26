@@ -1,4 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  categoryKey,
+  categoryLabel,
+  orderedCategories,
+  RATIO_CATEGORY_ORDER,
+} from "../analysis/keyRatios";
 import {
   ApiError,
   getRatiosConfigMeta,
@@ -14,6 +20,7 @@ import {
   downloadRatiosYaml,
   normalizeSpec,
 } from "../utils/ratiosYaml";
+import { SubTabs } from "./SubTabs";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
 
@@ -62,7 +69,33 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   const [notice, setNotice] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string>(
+    RATIO_CATEGORY_ORDER[0],
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const categories = useMemo(
+    () =>
+      orderedCategories([
+        ...RATIO_CATEGORY_ORDER,
+        ...draft.map((spec) => spec.category),
+      ]),
+    [draft],
+  );
+
+  const categoryRows = useMemo(
+    () =>
+      draft
+        .map((spec, index) => ({ spec, index }))
+        .filter(({ spec }) => categoryKey(spec.category) === activeCategory),
+    [activeCategory, draft],
+  );
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(categories[0] ?? RATIO_CATEGORY_ORDER[0]);
+    }
+  }, [activeCategory, categories]);
 
   function applyServerConfig(config: RatiosConfigMeta) {
     const specs = config.ratios.map((spec) => normalizeSpec(spec));
@@ -108,12 +141,15 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   }
 
   function moveSpec(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= draft.length) return;
+    const indices = categoryRows.map((row) => row.index);
+    const position = indices.indexOf(index);
+    const target = indices[position + direction];
+    if (target === undefined) return;
     setDraft((current) => {
       const next = [...current];
-      const [item] = next.splice(index, 1);
-      next.splice(target, 0, item);
+      const from = next[index];
+      next[index] = next[target];
+      next[target] = from;
       return next;
     });
     setExpanded((current) => {
@@ -284,7 +320,9 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
         </button>
         <button
           type="button"
-          onClick={() => setDraft((current) => [...current, blankRatioSpec()])}
+          onClick={() =>
+            setDraft((current) => [...current, blankRatioSpec(activeCategory)])
+          }
           disabled={saving}
           className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
         >
@@ -365,156 +403,179 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
       {loading ? (
         <p className="text-sm text-slate-600">Configuratie laden…</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="max-h-[70vh] overflow-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white text-slate-500">
-                <tr>
-                  <th className="w-14 px-4 py-2 font-medium">Aan</th>
-                  <th className="px-4 py-2 font-medium">Naam</th>
-                  <th className="w-40 px-4 py-2 font-medium">Categorie</th>
-                  <th className="px-4 py-2 font-medium">Formule</th>
-                  <th className="w-28 px-4 py-2 font-medium">Volgorde</th>
-                  <th className="w-28 px-4 py-2 font-medium">Acties</th>
-                </tr>
-              </thead>
-              <tbody>
-                {draft.map((spec, index) => (
-                  <Fragment key={`${spec.id}-${index}`}>
-                    <tr key={`${spec.id}-${index}`} className="border-t border-slate-100">
-                      <td className="px-4 py-2 align-middle">
-                        <input
-                          type="checkbox"
-                          checked={spec.enabled !== false}
-                          onChange={(event) =>
-                            updateSpec(index, { enabled: event.target.checked })
-                          }
-                          className="size-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                          aria-label={`${spec.name} inschakelen`}
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={spec.name}
-                          onChange={(event) =>
-                            updateSpec(index, { name: event.target.value })
-                          }
-                          className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={spec.category}
-                          onChange={(event) =>
-                            updateSpec(index, { category: event.target.value })
-                          }
-                          className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpanded((current) =>
-                              current === index ? null : index,
-                            )
-                          }
-                          className="text-left font-mono text-xs text-slate-600 hover:text-emerald-700"
-                        >
-                          {formulaPreview(spec)}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveSpec(index, -1)}
-                            disabled={index === 0}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                          >
-                            Omhoog
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveSpec(index, 1)}
-                            disabled={index === draft.length - 1}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                          >
-                            Omlaag
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDraft((current) =>
-                              current.filter((_, i) => i !== index),
-                            )
-                          }
-                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
-                        >
-                          Verwijderen
-                        </button>
-                      </td>
+        <div className="space-y-4">
+          <SubTabs
+            items={categories.map((category) => ({
+              id: category,
+              label: categoryLabel(category),
+            }))}
+            value={activeCategory}
+            onChange={(id) => {
+              setActiveCategory(id);
+              setExpanded(null);
+            }}
+          />
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="max-h-[70vh] overflow-auto">
+              {categoryRows.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-slate-600">
+                  Nog geen ratio’s in {categoryLabel(activeCategory)}. Gebruik
+                  Toevoegen om er één te maken.
+                </p>
+              ) : (
+                <table className="min-w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-white text-slate-500">
+                    <tr className="border-b border-slate-200">
+                      <th className="w-14 px-4 py-2 font-medium">Aan</th>
+                      <th className="px-4 py-2 font-medium">Naam</th>
+                      <th className="px-4 py-2 font-medium">Formule</th>
+                      <th className="w-28 px-4 py-2 font-medium">Volgorde</th>
+                      <th className="w-28 px-4 py-2 font-medium">Acties</th>
                     </tr>
-                    {expanded === index && (
-                      <tr className="border-t border-slate-100 bg-slate-50">
-                        <td colSpan={6} className="px-4 py-3">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <Field
-                              label="id"
-                              value={spec.id}
-                              onChange={(value) => updateSpec(index, { id: value })}
-                              mono
-                            />
-                            <Field
-                              label="numerator"
-                              value={spec.numerator}
-                              onChange={(value) =>
-                                updateSpec(index, { numerator: value })
+                  </thead>
+                  <tbody>
+                    {categoryRows.map(({ spec, index }, rowIndex) => (
+                      <Fragment key={`${spec.id}-${index}`}>
+                        <tr className="border-t border-slate-100">
+                          <td className="px-4 py-2 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={spec.enabled !== false}
+                              onChange={(event) =>
+                                updateSpec(index, { enabled: event.target.checked })
                               }
-                              mono
+                              className="size-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              aria-label={`${spec.name} inschakelen`}
                             />
-                            <Field
-                              label="denominator"
-                              value={spec.denominator ?? ""}
-                              onChange={(value) =>
-                                updateSpec(index, {
-                                  denominator: value.trim() ? value : null,
-                                })
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              type="text"
+                              value={spec.name}
+                              onChange={(event) =>
+                                updateSpec(index, { name: event.target.value })
                               }
-                              mono
-                              placeholder="(optioneel)"
+                              className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
                             />
-                            <Field
-                              label="multiply"
-                              value={String(spec.multiply ?? 1)}
-                              onChange={(value) => {
-                                const n = Number(value);
-                                updateSpec(index, {
-                                  multiply: Number.isFinite(n) ? n : 1,
-                                });
-                              }}
-                              mono
-                            />
-                            <Field
-                              label="unit"
-                              value={spec.unit ?? ""}
-                              onChange={(value) =>
-                                updateSpec(index, { unit: value })
+                          </td>
+                          <td className="px-4 py-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpanded((current) =>
+                                  current === index ? null : index,
+                                )
                               }
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
+                              className="inline-flex max-w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left ring-1 ring-slate-200 hover:bg-emerald-50 hover:ring-emerald-200"
+                            >
+                              <span className="truncate font-mono text-xs text-slate-800">
+                                {formulaPreview(spec)}
+                              </span>
+                              <span className="shrink-0 text-[11px] font-medium text-emerald-700">
+                                {expanded === index ? "Sluiten" : "Bewerken"}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveSpec(index, -1)}
+                                disabled={rowIndex === 0}
+                                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                              >
+                                Omhoog
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSpec(index, 1)}
+                                disabled={rowIndex === categoryRows.length - 1}
+                                className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                              >
+                                Omlaag
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDraft((current) =>
+                                  current.filter((_, i) => i !== index),
+                                )
+                              }
+                              className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-200 hover:bg-red-50"
+                            >
+                              Verwijderen
+                            </button>
+                          </td>
+                        </tr>
+                        {expanded === index && (
+                          <tr className="border-t border-slate-100 bg-slate-50">
+                            <td colSpan={5} className="px-4 py-3">
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                <Field
+                                  label="id"
+                                  value={spec.id}
+                                  onChange={(value) =>
+                                    updateSpec(index, { id: value })
+                                  }
+                                  mono
+                                />
+                                <Field
+                                  label="categorie"
+                                  value={spec.category}
+                                  onChange={(value) =>
+                                    updateSpec(index, { category: value })
+                                  }
+                                />
+                                <Field
+                                  label="numerator"
+                                  value={spec.numerator}
+                                  onChange={(value) =>
+                                    updateSpec(index, { numerator: value })
+                                  }
+                                  mono
+                                />
+                                <Field
+                                  label="denominator"
+                                  value={spec.denominator ?? ""}
+                                  onChange={(value) =>
+                                    updateSpec(index, {
+                                      denominator: value.trim() ? value : null,
+                                    })
+                                  }
+                                  mono
+                                  placeholder="(optioneel)"
+                                />
+                                <Field
+                                  label="multiply"
+                                  value={String(spec.multiply ?? 1)}
+                                  onChange={(value) => {
+                                    const n = Number(value);
+                                    updateSpec(index, {
+                                      multiply: Number.isFinite(n) ? n : 1,
+                                    });
+                                  }}
+                                  mono
+                                />
+                                <Field
+                                  label="unit"
+                                  value={spec.unit ?? ""}
+                                  onChange={(value) =>
+                                    updateSpec(index, { unit: value })
+                                  }
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}

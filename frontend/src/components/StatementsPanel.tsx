@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type {
   AmountFormat,
   AnalysisResult,
@@ -56,6 +55,8 @@ interface StatementsPanelProps {
   selection: SourceSelection | null;
   onSelectRow: (section: StatementSectionId, code: string) => void;
   readOnly: boolean;
+  view: StatementViewId;
+  onViewChange: (view: StatementViewId) => void;
 }
 
 export function StatementsPanel({
@@ -64,8 +65,9 @@ export function StatementsPanel({
   selection,
   onSelectRow,
   readOnly,
+  view,
+  onViewChange,
 }: StatementsPanelProps) {
-  const [view, setView] = useState<StatementViewId>("balans_activa");
   const current = STATEMENT_VIEWS.find((item) => item.id === view) ?? STATEMENT_VIEWS[0];
   const lines = result[current.resultKey] ?? [];
 
@@ -77,7 +79,7 @@ export function StatementsPanel({
           label: item.label,
         }))}
         value={view}
-        onChange={setView}
+        onChange={onViewChange}
       />
       <StatementTable
         title={current.label}

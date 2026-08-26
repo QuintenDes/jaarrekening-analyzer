@@ -16,6 +16,8 @@ interface PdfWorkspaceProps {
   selection: SourceSelection | null;
   onSelectionChange: (selection: SourceSelection) => void;
   analysisKey: string;
+  onBack?: () => void;
+  backLabel?: string;
 }
 
 export function PdfWorkspace({
@@ -25,6 +27,8 @@ export function PdfWorkspace({
   selection,
   onSelectionChange,
   analysisKey,
+  onBack,
+  backLabel,
 }: PdfWorkspaceProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -61,6 +65,15 @@ export function PdfWorkspace({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-slate-900">PDF scan</h2>
         <div className="flex gap-2">
+          {onBack && (
+            <button
+              type="button"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+              onClick={onBack}
+            >
+              {backLabel ?? "Terug"}
+            </button>
+          )}
           <button
             type="button"
             className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 lg:inline-flex"
@@ -90,6 +103,8 @@ export function PdfWorkspace({
           pageCount={result.page_count ?? null}
           selection={selection}
           onSelectHighlight={selectFromHighlight}
+          onBack={onBack}
+          backLabel={backLabel}
         />
         {!collapsed && (
           <div className="hidden min-h-0 overflow-hidden rounded-lg border border-slate-200 lg:block">

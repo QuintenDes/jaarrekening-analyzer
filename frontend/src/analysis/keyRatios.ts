@@ -33,6 +33,33 @@ export function ratiosInCategory(
   return ratios.filter((ratio) => ratio.category === category);
 }
 
+export function categoryKey(value: string): string {
+  return value.trim().toLowerCase() || "overig";
+}
+
+export function categoryLabel(value: string): string {
+  const key = categoryKey(value);
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : key;
+}
+
+/** Known YAML categories first, then any extra categories in first-seen order. */
+export function orderedCategories(values: Iterable<string>): string[] {
+  const seen = new Set<string>();
+  const extras: string[] = [];
+  for (const value of values) {
+    const key = categoryKey(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!(RATIO_CATEGORY_ORDER as readonly string[]).includes(key)) {
+      extras.push(key);
+    }
+  }
+  return [
+    ...RATIO_CATEGORY_ORDER.filter((category) => seen.has(category)),
+    ...extras,
+  ];
+}
+
 /**
  * Dashboard selection: the 3 designated key metrics for a category.
  * If a designated id is missing from results, fall back to the next

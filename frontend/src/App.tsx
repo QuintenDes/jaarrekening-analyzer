@@ -12,7 +12,10 @@ import { ProcessingPanel } from "./components/ProcessingPanel";
 import { RatioConfigPanel } from "./components/RatioConfigPanel";
 import { RatioDashboard } from "./components/RatioDashboard";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { StatementsPanel } from "./components/StatementsPanel";
+import {
+  StatementsPanel,
+  type StatementViewId,
+} from "./components/StatementsPanel";
 import { HeaderUploadButton, UploadZone } from "./components/UploadZone";
 import { ValidationPanel } from "./components/ValidationPanel";
 import { WarningBanners } from "./components/WarningBanners";
@@ -37,6 +40,9 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [amountFormat, setAmountFormat] = useState<AmountFormat>(loadAmountFormat);
   const [selection, setSelection] = useState<SourceSelection | null>(null);
+  const [statementView, setStatementView] =
+    useState<StatementViewId>("balans_activa");
+  const [pdfReturnTo, setPdfReturnTo] = useState<Tab | null>(null);
 
   const analyzing = session.status === "analyzing";
   const showResults =
@@ -62,6 +68,8 @@ function App() {
 
   useEffect(() => {
     setSelection(null);
+    setPdfReturnTo(null);
+    setStatementView("balans_activa");
   }, [analysisKey]);
 
   const hasDocument = Boolean(session.result || session.pdfFile);
@@ -90,6 +98,7 @@ function App() {
         page: 0,
       });
     }
+    setPdfReturnTo("tables");
     setActiveTab("pdf_scan");
   }
 
@@ -166,6 +175,9 @@ function App() {
               key={tab.id}
               type="button"
               onClick={() => {
+                if (tab.id !== "pdf_scan") {
+                  setPdfReturnTo(null);
+                }
                 setActiveTab(tab.id);
               }}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -221,6 +233,17 @@ function App() {
                   selection={selection}
                   onSelectionChange={handleSourceSelection}
                   analysisKey={analysisKey}
+                  onBack={
+                    pdfReturnTo
+                      ? () => {
+                          setActiveTab(pdfReturnTo);
+                          setPdfReturnTo(null);
+                        }
+                      : undefined
+                  }
+                  backLabel={
+                    pdfReturnTo === "tables" ? "Terug naar tabellen" : "Terug"
+                  }
                 />
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -243,6 +266,8 @@ function App() {
                 selection={selection}
                 onSelectRow={handleStatementSelect}
                 readOnly={readOnly}
+                view={statementView}
+                onViewChange={setStatementView}
               />
             )}
             {activeTab === "ratios" && (

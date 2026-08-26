@@ -46,6 +46,8 @@ type Props = {
   pageCount: number | null;
   selection: SourceSelection | null;
   onSelectHighlight: (highlight: ScanHighlight, occurrenceIndex: number) => void;
+  onBack?: () => void;
+  backLabel?: string;
 };
 
 function occurrenceIndexOf(
@@ -69,6 +71,8 @@ export function PdfHighlightViewer({
   pageCount,
   selection,
   onSelectHighlight,
+  onBack,
+  backLabel = "Terug",
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -79,10 +83,8 @@ export function PdfHighlightViewer({
   const [loadNonce, setLoadNonce] = useState(0);
   const [rendering, setRendering] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pageInput, setPageInput] = useState("1");
-  const lastFitKeyRef = useRef<string | null>(null);
   const jumpedForPdfRef = useRef<PDFDocumentProxy | null>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
   const pendingScrollRestoreRef = useRef<{ rx: number; ry: number } | null>(
@@ -150,32 +152,11 @@ export function PdfHighlightViewer({
   }, [selection]);
 
   useEffect(() => {
-    if (!selection) return;
-    const fitKey = selectionFitKey(selection);
-    if (lastFitKeyRef.current === fitKey) return;
-
-    const pageSize = pageSizes[selection.page];
-    const group = highlights.filter(
-      (item) => item.section === selection.section && item.code === selection.code,
-    );
-    const target = group[selection.occurrenceIndex] ?? group[group.length - 1];
-    if (!target || !pageSize || viewportHeight <= 0 || viewportWidth <= 0) return;
-
-    lastFitKeyRef.current = fitKey;
-    const highlightH = Math.max(target.bottom - target.top, 8);
-    const fitWidth = viewportWidth / pageSize.width;
-    const desired = (viewportHeight * 0.38) / highlightH;
-    const nextZoom = Math.min(4, Math.max(1, desired / fitWidth));
-    setZoom(nextZoom);
-  }, [highlights, pageSizes, selection, viewportHeight, viewportWidth]);
-
-  useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
     const update = () => {
       setViewportWidth(viewport.clientWidth);
-      setViewportHeight(viewport.clientHeight);
     };
     update();
 
@@ -265,6 +246,15 @@ export function PdfHighlightViewer({
   }, [selection, pageIndex, rendering]);
 
   const pageSize = pageSizes[pageIndex];
+  const selectedHighlight = pageHighlights.find((h) => {
+    if (!selection) return false;
+    const occ = occurrenceIndexOf(highlights, h);
+    return (
+      selection.section === h.section &&
+      selection.code === h.code &&
+      selection.occurrenceIndex === occ
+    );
+  });
 
   function overlayStyle(h: ScanHighlight): CSSProperties {
     if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
@@ -276,6 +266,21 @@ export function PdfHighlightViewer({
       width: `${(Math.max(h.x1 - h.x0, 1) / pageSize.width) * 100}%`,
       height: `${(Math.max(h.bottom - h.top, 1) / pageSize.height) * 100}%`,
       backgroundColor: SECTION_COLORS[h.section] ?? "rgba(100, 116, 139, 0.35)",
+    };
+  }
+
+  function backButtonStyle(h: ScanHighlight): CSSProperties {
+    if (!pageSize || pageSize.width <= 0 || pageSize.height <= 0) {
+      return { display: "none" };
+    }
+    const rightEdge = h.x1 / pageSize.width;
+    const placeLeft = rightEdge > 0.72;
+    return {
+      top: `${(h.top / pageSize.height) * 100}%`,
+      left: placeLeft
+        ? `${(h.x0 / pageSize.width) * 100}%`
+        : `${(h.x1 / pageSize.width) * 100}%`,
+      transform: placeLeft ? "translate(calc(-100% - 8px), 0)" : "translate(8px, 0)",
     };
   }
 
@@ -453,6 +458,19 @@ export function PdfHighlightViewer({
                 />
               );
             })}
+            {onBack && selectedHighlight && (
+              <button
+                type="button"
+                className="absolute z-20 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
+                style={backButtonStyle(selectedHighlight)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onBack();
+                }}
+              >
+                {backLabel}
+              </button>
+            )}
           </div>
         </div>
       </div>

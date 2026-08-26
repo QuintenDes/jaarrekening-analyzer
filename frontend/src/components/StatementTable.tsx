@@ -15,6 +15,10 @@ interface StatementTableProps {
 
 const INDENT_CLASS = ["pl-4", "pl-8", "pl-12", "pl-16"] as const;
 
+function normalizeLabel(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 /**
  * Presentational table: toont StatementLine[] zonder API-calls.
  * Kolommen: code | PDF-omschrijving + MAR-label | toelichting | boekjaar | vorig.
@@ -40,7 +44,7 @@ export function StatementTable({
       <div className="px-4 py-3">
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
         <p className="mt-0.5 text-sm text-slate-500">
-          {lines.length} regels · bovenste regel uit de PDF, daaronder het MAR-label
+          {lines.length} regels · klik een regel om de bron in de PDF te zien
         </p>
       </div>
       <div className="max-h-[70vh] overflow-auto">
@@ -48,12 +52,7 @@ export function StatementTable({
           <thead className="sticky top-0 bg-white text-slate-500">
             <tr className="border-y border-slate-200">
               <th className="w-20 px-4 py-2 align-top font-medium">Code</th>
-              <th className="px-4 py-2 align-top font-medium">
-                Omschrijving
-                <span className="mt-0.5 block text-xs font-normal text-slate-400">
-                  PDF · MAR-label
-                </span>
-              </th>
+              <th className="px-4 py-2 align-top font-medium">Omschrijving</th>
               <th className="w-16 px-4 py-2 align-top font-medium">Toel.</th>
               <th className="w-28 px-4 py-2 align-top text-right font-medium">
                 Boekjaar
@@ -73,6 +72,10 @@ export function StatementTable({
                   : "pl-4";
               const selected = selectedCode === line.code;
               const glossary = nbbGlossaryLabel(line.code);
+              const showGlossary =
+                Boolean(glossary) &&
+                normalizeLabel(glossary ?? "") !==
+                  normalizeLabel(line.label || "");
 
               return (
                 <tr
@@ -100,7 +103,7 @@ export function StatementTable({
                     }`}
                   >
                     <span>{line.label || "—"}</span>
-                    {glossary ? (
+                    {showGlossary ? (
                       <span className="mt-1 flex items-baseline gap-1.5 text-xs font-normal text-slate-500">
                         <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
                           MAR

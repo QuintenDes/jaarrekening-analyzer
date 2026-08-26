@@ -73,7 +73,7 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
   return (
     <div
       ref={cardRef}
-      className="relative rounded-lg border border-slate-100 bg-slate-50 p-4"
+      className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm text-slate-500">{ratio.name}</p>
@@ -153,7 +153,7 @@ function RatioGrid({
   onClose: () => void;
 }) {
   return (
-    <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((ratio) => (
         <RatioCard
           key={ratio.id}
@@ -183,9 +183,11 @@ function CategorySection({
   onClose: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3">
-        <h3 className="font-semibold text-slate-800">{titleCase(category)}</h3>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-900">
+          {titleCase(category)}
+        </h2>
         {onViewAll && (
           <button
             type="button"
@@ -196,13 +198,19 @@ function CategorySection({
           </button>
         )}
       </div>
-      <RatioGrid
-        items={items}
-        openFormulaId={openFormulaId}
-        onToggle={onToggle}
-        onClose={onClose}
-      />
-    </div>
+      {items.length === 0 ? (
+        <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+          Geen ratio’s in deze categorie.
+        </p>
+      ) : (
+        <RatioGrid
+          items={items}
+          openFormulaId={openFormulaId}
+          onToggle={onToggle}
+          onClose={onClose}
+        />
+      )}
+    </section>
   );
 }
 
