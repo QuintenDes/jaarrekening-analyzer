@@ -8,10 +8,9 @@ export const RATIO_CATEGORY_ORDER = [
 
 export type RatioCategoryId = (typeof RATIO_CATEGORY_ORDER)[number];
 
-export type RatioView = "dashboard" | string;
+export type RatioView = string;
 
 export const RATIO_VIEWS: { id: RatioView; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
   { id: "liquiditeit", label: "Liquiditeit" },
   { id: "solvabiliteit", label: "Solvabiliteit" },
   { id: "rentabiliteit", label: "Rentabiliteit" },

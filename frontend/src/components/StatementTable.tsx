@@ -10,6 +10,7 @@ interface StatementTableProps {
   amountFormat?: AmountFormat;
   selectedCode?: string | null;
   onSelectRow?: (code: string) => void;
+  onJumpToPdf?: () => void;
   readOnly?: boolean;
 }
 
@@ -26,6 +27,7 @@ export function StatementTable({
   amountFormat = "full",
   selectedCode,
   onSelectRow,
+  onJumpToPdf,
   readOnly: _readOnly = false,
 }: StatementTableProps) {
   const depths = assignLineDepths(lines);
@@ -40,7 +42,7 @@ export function StatementTable({
       <div className="px-4 py-3">
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
         <p className="mt-0.5 text-sm text-slate-500">
-          {lines.length} regels · klik een regel om de bron in de PDF te zien
+          {lines.length} regels · klik een regel om te selecteren
         </p>
       </div>
       <div className="max-h-[70vh] overflow-auto">
@@ -94,7 +96,21 @@ export function StatementTable({
                       emphasize ? "font-semibold text-slate-900" : "text-slate-800"
                     }`}
                   >
-                    {printedLabel || "—"}
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0">{printedLabel || "—"}</span>
+                      {selected && onJumpToPdf ? (
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 items-center whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onJumpToPdf();
+                          }}
+                        >
+                          Jump to PDF
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 align-top text-slate-500">
                     {line.footnote || "—"}

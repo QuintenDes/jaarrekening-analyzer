@@ -17,7 +17,11 @@ from pathlib import Path
 import pdfplumber
 
 from app.models.schemas import ScanHighlight, StatementLine
-from app.pdf.format import SCHEMA_HEADER_RE, detect_schema_format_from_text
+from app.pdf.format import (
+    SCHEMA_HEADER_RE,
+    detect_company_name_from_lines,
+    detect_schema_format_from_text,
+)
 
 # --- 1. Regex-patronen -------------------------------------------------------
 # NBB-PDF's hebben vaste kolommen: omschrijving | toel. | code | boekjaar | vorig jaar.
@@ -367,6 +371,7 @@ class ExtractionResult:
     highlights: list[ScanHighlight] = field(default_factory=list)
     page_count: int | None = None
     page_sizes: list[tuple[float, float]] = field(default_factory=list)
+    company_name: str | None = None
 
 
 def parse_amount(value: str) -> int:
@@ -605,6 +610,7 @@ def extract_rows_from_lines(
     grouped: dict[str, list[Row]] = {key: [] for key in SECTION_KEYS}
     highlights: list[ScanHighlight] = []
     schema_format: str | None = None
+    preamble: list[str] = []
     in_statements = False
     current_section: str | None = None
     pending_description = ""
@@ -618,6 +624,8 @@ def extract_rows_from_lines(
             schema_format = detect_schema_format_from_text(stripped)
 
         if not in_statements:
+            if stripped:
+                preamble.append(stripped)
             if JAARREKENING_GATE.match(stripped):
                 in_statements = True
             continue
@@ -691,6 +699,7 @@ def extract_rows_from_lines(
         rows=grouped,
         schema_format=schema_format,
         highlights=highlights,
+        company_name=detect_company_name_from_lines(preamble),
     )
 
 
@@ -789,8 +798,15 @@ def row_to_statement(row: Row) -> StatementLine:
 
 def extract_statements(
     pdf_source: bytes | Path,
-) -> tuple[dict[str, list[StatementLine]], str | None, list[ScanHighlight], int | None, list[tuple[float, float]]]:
-    """Publieke API: PDF → (secties, schema_format, highlights, page_count, page_sizes)."""
+) -> tuple[
+    dict[str, list[StatementLine]],
+    str | None,
+    list[ScanHighlight],
+    int | None,
+    list[tuple[float, float]],
+    str | None,
+]:
+    """Publieke API: PDF → (secties, schema, highlights, pages, ondernemingsnaam)."""
     result = extract_rows_from_pdf(pdf_source)
     statements = {
         key: [row_to_statement(row) for row in result.rows[key]] for key in SECTION_KEYS
@@ -801,4 +817,5 @@ def extract_statements(
         result.highlights,
         result.page_count,
         result.page_sizes,
+        result.company_name,
     )

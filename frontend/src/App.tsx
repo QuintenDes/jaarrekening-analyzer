@@ -28,8 +28,9 @@ import type {
 } from "./types";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "ratios", label: "Ratio's" },
-  { id: "tables", label: "Tabellen" },
+  { id: "tables", label: "Jaarrekening" },
   { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
   { id: "settings", label: "Instellingen" },
@@ -43,6 +44,7 @@ function App() {
   const [statementView, setStatementView] =
     useState<StatementViewId>("balans_activa");
   const [pdfReturnTo, setPdfReturnTo] = useState<Tab | null>(null);
+  const [ratioView, setRatioView] = useState("liquiditeit");
 
   const analyzing = session.status === "analyzing";
   const showResults =
@@ -53,7 +55,7 @@ function App() {
 
   useEffect(() => {
     if (session.status === "completed" && session.result && activeTab === null) {
-      setActiveTab("ratios");
+      setActiveTab("dashboard");
     }
   }, [activeTab, session.result, session.status]);
 
@@ -70,6 +72,7 @@ function App() {
     setSelection(null);
     setPdfReturnTo(null);
     setStatementView("balans_activa");
+    setRatioView("liquiditeit");
   }, [analysisKey]);
 
   const hasDocument = Boolean(session.result || session.pdfFile);
@@ -98,6 +101,10 @@ function App() {
         page: 0,
       });
     }
+  }
+
+  function handleJumpToPdf() {
+    if (!selection) return;
     setPdfReturnTo("tables");
     setActiveTab("pdf_scan");
   }
@@ -261,7 +268,7 @@ function App() {
                       : undefined
                   }
                   backLabel={
-                    pdfReturnTo === "tables" ? "Terug naar tabellen" : "Terug"
+                    pdfReturnTo === "tables" ? "Terug naar jaarrekening" : "Terug"
                   }
                 />
                 </div>
@@ -285,20 +292,40 @@ function App() {
                 amountFormat={amountFormat}
                 selection={selection}
                 onSelectRow={handleStatementSelect}
+                onJumpToPdf={handleJumpToPdf}
                 readOnly={readOnly}
                 view={statementView}
                 onViewChange={setStatementView}
               />
             )}
+            {activeTab === "dashboard" && (
+              <RatioDashboard
+                key={`${analysisKey}-overview`}
+                mode="overview"
+                companyName={session.result.company_name}
+                result={session.result}
+                ratios={session.displayedRatios}
+                amountFormat={amountFormat}
+                updating={session.recomputeState === "updating"}
+                staleFailure={session.recomputeState === "failed"}
+                onViewAll={(category) => {
+                  setRatioView(category);
+                  setActiveTab("ratios");
+                }}
+              />
+            )}
             {activeTab === "ratios" && (
               <div className="space-y-6">
                 <RatioDashboard
-                  key={analysisKey}
+                  key={`${analysisKey}-categories`}
+                  mode="categories"
                   result={session.result}
                   ratios={session.displayedRatios}
                   amountFormat={amountFormat}
                   updating={session.recomputeState === "updating"}
                   staleFailure={session.recomputeState === "failed"}
+                  view={ratioView}
+                  onViewChange={setRatioView}
                 />
                 <ValidationPanel validations={session.displayedValidations} />
               </div>

@@ -74,8 +74,8 @@ def analyze_pdf(
 
     progress("extract")
     check()
-    statements, schema_format, highlights, page_count, page_sizes = extract_statements(
-        pdf_bytes
+    statements, schema_format, highlights, page_count, page_sizes, company_name = (
+        extract_statements(pdf_bytes)
     )
     balance_assets = statements["balans_activa"]
     balance_liabilities = statements["balans_passiva"]
@@ -103,6 +103,7 @@ def analyze_pdf(
     check()
     return AnalysisResult(
         schema_format=schema_format,
+        company_name=company_name,
         balance_assets=balance_assets,
         balance_liabilities=balance_liabilities,
         income_statement=income_statement,

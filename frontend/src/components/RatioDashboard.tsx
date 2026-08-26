@@ -22,6 +22,11 @@ interface RatioDashboardProps {
   amountFormat: AmountFormat;
   updating?: boolean;
   staleFailure?: boolean;
+  mode?: "overview" | "categories";
+  companyName?: string | null;
+  view?: RatioView;
+  onViewChange?: (view: RatioView) => void;
+  onViewAll?: (category: string) => void;
 }
 
 function titleCase(value: string): string {
@@ -207,8 +212,8 @@ function CategorySection({
 }
 
 /**
- * Ratio area: dashboard (KPIs + 3 key metrics per category) and
- * dedicated category views with the full existing list.
+ * Overview dashboard (KPIs + key metrics) or category lists with the
+ * existing ratio cards.
  */
 export function RatioDashboard({
   result,
@@ -216,8 +221,13 @@ export function RatioDashboard({
   amountFormat,
   updating = false,
   staleFailure = false,
+  mode = "categories",
+  companyName,
+  view: viewProp,
+  onViewChange,
+  onViewAll,
 }: RatioDashboardProps) {
-  const [view, setView] = useState<RatioView>("dashboard");
+  const [internalView, setInternalView] = useState<RatioView>("liquiditeit");
   const [openFormulaId, setOpenFormulaId] = useState<string | null>(null);
   const [dashboardCount, setDashboardCount] = useState(DEFAULT_DASHBOARD_RATIO_COUNT);
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
@@ -254,15 +264,25 @@ export function RatioDashboard({
   );
 
   const views = useMemo(
-    () => [
-      { id: "dashboard" as const, label: "Dashboard" },
-      ...dashboardCategories.map((category) => ({
+    () =>
+      dashboardCategories.map((category) => ({
         id: category,
         label: categoryLabel(category),
       })),
-    ],
     [dashboardCategories],
   );
+
+  const view = viewProp ?? internalView;
+  const defaultCategory = views[0]?.id ?? "liquiditeit";
+  const activeCategory = views.some((item) => item.id === view)
+    ? view
+    : defaultCategory;
+
+  function setView(next: RatioView) {
+    onViewChange?.(next);
+    if (viewProp === undefined) setInternalView(next);
+    setOpenFormulaId(null);
+  }
 
   function toggleFormula(id: string) {
     setOpenFormulaId((current) => (current === id ? null : id));
@@ -283,61 +303,68 @@ export function RatioDashboard({
     </>
   );
 
-  return (
-    <div className="space-y-6">
-      <SubTabs
-        items={views}
-        value={view}
-        onChange={(id) => {
-          setView(id);
-          setOpenFormulaId(null);
-        }}
-      />
-
-      {statusBanners}
-
-      {view === "dashboard" ? (
-        <>
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">
-              Kerncijfers
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {kpis.map((kpi) => (
-                <KpiCard key={kpi.id} kpi={kpi} amountFormat={amountFormat} />
-              ))}
-            </div>
-          </section>
-          {dashboardCategories.map((category, index) => (
-            <CategorySection
-              key={category}
-              category={category}
-              separated={index > 0}
-              items={keyRatiosForCategory(
-                ratios,
-                category,
-                dashboardCount,
-                keyIds[category],
-              )}
-              onViewAll={() => {
-                setView(category);
-                setOpenFormulaId(null);
-              }}
-              openFormulaId={openFormulaId}
-              onToggle={toggleFormula}
-              onClose={() => setOpenFormulaId(null)}
-            />
+  const overview = (
+    <>
+      {companyName ? (
+        <section>
+          <p className="text-sm text-slate-500">Onderneming</p>
+          <h2 className="text-2xl font-semibold text-slate-900">{companyName}</h2>
+        </section>
+      ) : null}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">Kerncijfers</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {kpis.map((kpi) => (
+            <KpiCard key={kpi.id} kpi={kpi} amountFormat={amountFormat} />
           ))}
-        </>
-      ) : (
+        </div>
+      </section>
+      {dashboardCategories.map((category, index) => (
         <CategorySection
-          category={view}
-          items={ratiosInCategory(ratios, view)}
+          key={category}
+          category={category}
+          separated={index > 0}
+          items={keyRatiosForCategory(
+            ratios,
+            category,
+            dashboardCount,
+            keyIds[category],
+          )}
+          onViewAll={
+            onViewAll
+              ? () => onViewAll(category)
+              : () => setView(category)
+          }
           openFormulaId={openFormulaId}
           onToggle={toggleFormula}
           onClose={() => setOpenFormulaId(null)}
         />
-      )}
+      ))}
+    </>
+  );
+
+  if (mode === "overview") {
+    return (
+      <div className="space-y-6">
+        {statusBanners}
+        {overview}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <SubTabs items={views} value={activeCategory} onChange={setView} />
+
+      {statusBanners}
+
+      <CategorySection
+        category={activeCategory}
+        items={ratiosInCategory(ratios, activeCategory)}
+        openFormulaId={openFormulaId}
+        onToggle={toggleFormula}
+        onClose={() => setOpenFormulaId(null)}
+      />
     </div>
   );
 }

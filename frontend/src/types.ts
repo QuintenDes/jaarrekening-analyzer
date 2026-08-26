@@ -78,6 +78,7 @@ export interface PageSize {
  */
 export interface AnalysisResult {
   schema_format: string | null; // bijv. VOL-kap, MIC-inb
+  company_name?: string | null; // ondernemingsnaam uit NBB-identiteit
   balance_assets: StatementLine[]; // balans activa
   balance_liabilities: StatementLine[]; // balans passiva
   income_statement: StatementLine[]; // resultatenrekening
@@ -148,6 +149,7 @@ export interface SourceSelection {
 }
 
 export type Tab =
+  | "dashboard"
   | "pdf_scan"
   | "tables"
   | "ratios"

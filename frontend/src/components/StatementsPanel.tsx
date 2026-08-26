@@ -54,6 +54,7 @@ interface StatementsPanelProps {
   amountFormat: AmountFormat;
   selection: SourceSelection | null;
   onSelectRow: (section: StatementSectionId, code: string) => void;
+  onJumpToPdf?: () => void;
   readOnly: boolean;
   view: StatementViewId;
   onViewChange: (view: StatementViewId) => void;
@@ -64,6 +65,7 @@ export function StatementsPanel({
   amountFormat,
   selection,
   onSelectRow,
+  onJumpToPdf,
   readOnly,
   view,
   onViewChange,
@@ -89,6 +91,7 @@ export function StatementsPanel({
           selection?.section === current.section ? selection.code : null
         }
         onSelectRow={(code) => onSelectRow(current.section, code)}
+        onJumpToPdf={onJumpToPdf}
         readOnly={readOnly}
       />
     </div>

@@ -123,6 +123,7 @@ class AnalysisResult(BaseModel):
     """Volledig antwoord van de analyse-pipeline — dit serialiseert naar JSON."""
 
     schema_format: str | None = None  # bijv. VOL-kap, MIC-inb
+    company_name: str | None = None  # ondernemingsnaam uit NBB-identiteit
     balance_assets: list[StatementLine]  # balans activa
     balance_liabilities: list[StatementLine]  # balans passiva
     income_statement: list[StatementLine]  # resultatenrekening
