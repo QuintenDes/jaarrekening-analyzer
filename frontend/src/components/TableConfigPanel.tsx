@@ -9,11 +9,16 @@ import {
 } from "../api/client";
 import type {
   FinancialTableConfig,
-  ModelKind,
   TableHistoryEntry,
   TabellenViewId,
   TablesConfigMeta,
 } from "../types";
+import {
+  MODEL_LABELS,
+  tableIdForView,
+  VIEW_ITEMS,
+  type ResultGroup,
+} from "../tables/views";
 import {
   addTableColumn,
   addTableRow,
@@ -23,23 +28,6 @@ import { PlusIcon, ResetIcon, SaveIcon } from "./icons";
 import { SubTabs } from "./SubTabs";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
-
-const VIEW_ITEMS: { id: TabellenViewId; label: string }[] = [
-  { id: "cashflow", label: "Cashflow" },
-  { id: "herwerkte_balans", label: "Herwerkte balans" },
-  {
-    id: "herwerkte_resultatenrekening",
-    label: "Herwerkte resultatenrekening",
-  },
-];
-
-const MODEL_LABELS: Record<ModelKind, string> = {
-  full: "Full",
-  verkort: "Verkort",
-  micro: "Micro",
-};
-
-type ResultGroup = "full" | "verkort_micro";
 
 function loadAdminToken(): string {
   return sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
@@ -71,17 +59,6 @@ function cloneTables(tables: FinancialTableConfig[]): FinancialTableConfig[] {
 
 function serializeTables(tables: FinancialTableConfig[]): string {
   return JSON.stringify(tables);
-}
-
-function tableIdForView(
-  view: TabellenViewId,
-  resultGroup: ResultGroup,
-): string {
-  if (view === "cashflow") return "cashflow";
-  if (view === "herwerkte_balans") return "herwerkte_balans";
-  return resultGroup === "full"
-    ? "herwerkte_resultatenrekening_full"
-    : "herwerkte_resultatenrekening_verkort_micro";
 }
 
 function mapWriteError(err: unknown): string {
@@ -275,7 +252,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   return (
     <div className="min-w-0 space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="font-semibold text-slate-800">Tabellen</h3>
+        <h3 className="font-semibold text-slate-800">Tabellen configuratie</h3>
         <p className="mt-1 text-sm text-slate-600">
           Configureer de herwerkte financiële tabellen. Wijzigingen worden op de
           server bewaard en gelden voor iedereen. Opslaan schrijft alle vier de
@@ -432,6 +409,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             table={activeTable}
             onChange={updateActiveTable}
             disabled={saving || loading}
+            editable={true}
           />
         </div>
       )}

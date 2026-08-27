@@ -13,6 +13,7 @@ import { RatioConfigPanel } from "./components/RatioConfigPanel";
 import { RatioDashboard } from "./components/RatioDashboard";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { TableConfigPanel } from "./components/TableConfigPanel";
+import { TableViewPanel } from "./components/TableViewPanel";
 import {
   StatementsPanel,
   type StatementViewId,
@@ -35,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
   { id: "tabellen", label: "Tabellen" },
+  { id: "tabellen_config", label: "Tabellen configuratie" },
   { id: "settings", label: "Instellingen" },
 ];
 
@@ -192,6 +194,7 @@ function App() {
               tab.id === "settings" ||
               tab.id === "ratio_config" ||
               tab.id === "tabellen" ||
+              tab.id === "tabellen_config" ||
               showResults,
           ).map((tab) => (
             <button
@@ -199,11 +202,11 @@ function App() {
               type="button"
               onClick={() => {
                 if (
-                  activeTab === "tabellen" &&
-                  tab.id !== "tabellen" &&
+                  activeTab === "tabellen_config" &&
+                  tab.id !== "tabellen_config" &&
                   tabellenDirty &&
                   !window.confirm(
-                    "Er zijn niet-opgeslagen wijzigingen in Tabellen. Als je deze tab verlaat, gaan ze verloren. Doorgaan?",
+                    "Er zijn niet-opgeslagen wijzigingen in Tabellen configuratie. Als je deze tab verlaat, gaan ze verloren. Doorgaan?",
                   )
                 ) {
                   return;
@@ -244,7 +247,9 @@ function App() {
           />
         )}
 
-        {activeTab === "tabellen" && (
+        {activeTab === "tabellen" && <TableViewPanel />}
+
+        {activeTab === "tabellen_config" && (
           <TableConfigPanel onDirtyChange={setTabellenDirty} />
         )}
 
@@ -264,7 +269,8 @@ function App() {
 
             {activeTab !== "settings" &&
               activeTab !== "ratio_config" &&
-              activeTab !== "tabellen" && (
+              activeTab !== "tabellen" &&
+              activeTab !== "tabellen_config" && (
               <WarningBanners warnings={session.result.warnings} />
             )}
 

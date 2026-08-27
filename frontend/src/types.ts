@@ -198,4 +198,5 @@ export type Tab =
   | "ratios"
   | "ratio_config"
   | "tabellen"
+  | "tabellen_config"
   | "settings";
