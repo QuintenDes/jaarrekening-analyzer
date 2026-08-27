@@ -32,11 +32,11 @@ import type {
 const TABS: { id: Tab; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "ratios", label: "Ratio's" },
-  { id: "tables", label: "Jaarrekening" },
-  { id: "pdf_scan", label: "PDF scan" },
   { id: "ratio_config", label: "Ratio-configuratie" },
   { id: "tabellen", label: "Tabellen" },
   { id: "tabellen_config", label: "Tabellen configuratie" },
+  { id: "tables", label: "Jaarrekening" },
+  { id: "pdf_scan", label: "PDF scan" },
   { id: "settings", label: "Instellingen" },
 ];
 

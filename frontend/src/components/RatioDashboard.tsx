@@ -211,6 +211,9 @@ function CategorySection({
   );
 }
 
+/** Temporarily hide dashboard Kerncijfers until that block is redesigned. */
+const SHOW_DASHBOARD_KERNCIJFERS = false;
+
 /**
  * Overview dashboard (KPIs + key metrics) or category lists with the
  * existing ratio cards.
@@ -311,14 +314,16 @@ export function RatioDashboard({
           <h2 className="text-2xl font-semibold text-slate-900">{companyName}</h2>
         </section>
       ) : null}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Kerncijfers</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {kpis.map((kpi) => (
-            <KpiCard key={kpi.id} kpi={kpi} amountFormat={amountFormat} />
-          ))}
-        </div>
-      </section>
+      {SHOW_DASHBOARD_KERNCIJFERS && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Kerncijfers</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {kpis.map((kpi) => (
+              <KpiCard key={kpi.id} kpi={kpi} amountFormat={amountFormat} />
+            ))}
+          </div>
+        </section>
+      )}
       {dashboardCategories.map((category, index) => (
         <CategorySection
           key={category}
