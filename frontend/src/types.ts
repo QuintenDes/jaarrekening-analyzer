@@ -53,7 +53,7 @@ export interface TableRow {
   cells: string[];
   /** Visual nesting level for the omschrijving (0 = none). Stacks. */
   indent?: number;
-  /** Optional row note shown via the eye badge. */
+  /** Optional row note shown via the info (i) badge. */
   info?: string;
   /** Per-model cell overrides when formulas differ between Full / Verkort / Micro. */
   cells_by_model?: Partial<Record<ModelKind, string[]>>;

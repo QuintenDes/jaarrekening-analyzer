@@ -1,6 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EyeIcon } from "./icons";
 
 interface RowInfoBadgeProps {
   info: string;
@@ -109,13 +108,13 @@ export function RowInfoBadge({
           event.stopPropagation();
           setOpen((value) => !value);
         }}
-        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1 transition ${
+        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1 transition ${
           hasInfo
             ? "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100"
             : "bg-white text-slate-400 ring-slate-200 hover:bg-slate-50 hover:text-slate-600"
         } disabled:opacity-40`}
       >
-        <EyeIcon className="h-3.5 w-3.5" />
+        i
       </button>
       {panel}
     </>

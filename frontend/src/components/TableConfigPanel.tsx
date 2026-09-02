@@ -28,7 +28,7 @@ import {
   addTableRow,
   EditableFinancialTable,
 } from "./EditableFinancialTable";
-import { PlusIcon, ResetIcon, SaveIcon } from "./icons";
+import { PlusIcon, ResetIcon, SaveIcon, ChevronIcon } from "./icons";
 import { SubTabs } from "./SubTabs";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
@@ -116,6 +116,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [ratioSpecs, setRatioSpecs] = useState<RatioSpec[]>([]);
   const [editModel, setEditModel] = useState<ModelKind>("full");
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const dirty = useMemo(
     () => serializeTables(draft) !== serializeTables(saved),
@@ -277,259 +278,258 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   }
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="font-semibold text-slate-800">Tabellen configuratie</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Configureer de herwerkte financiële tabellen. Wijzigingen worden op de
-          server bewaard en gelden voor iedereen. Opslaan schrijft alle vier de
-          tabelconfiguraties als één versie.
-        </p>
-        <p className="mt-2 text-sm text-slate-600">
-          In bedragkolommen kun je verwijzingen zetten:{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            mar:29/58
-          </code>{" "}
-          of{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            @29/58
-          </code>{" "}
-          (PDF/MAR, expressies met{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            +
-          </code>
-          /
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            -
-          </code>{" "}
-          mogen), en{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            ratio:current_ratio
-          </code>{" "}
-          (ratio-id),{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            cell:boekjaar
-          </code>{" "}
-          (andere kolom in dezelfde rij), en{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            pct:vorig,boekjaar
-          </code>{" "}
-          (% verschil tussen twee kolommen). Typ{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            mar:
-          </code>
-          ,{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            ratio:
-          </code>
-          ,{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            cell:
-          </code>{" "}
-          of{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            pct:
-          </code>{" "}
-          voor suggesties. Het jaar volgt de kolom (boekjaar/vorig), of forceer met{" "}
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            mar.current:
-          </code>{" "}
-          /
-          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
-            mar.previous:
-          </code>
-          .
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
-            Admin-wachtwoord
-            <input
-              type="password"
-              value={adminToken}
-              autoComplete="off"
-              onChange={(event) => handleTokenChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-            />
-          </label>
-          <div className="text-sm text-slate-600">
-            <p>
-              Status:{" "}
-              <span className="font-medium text-slate-800">
-                {meta?.source === "saved" ? "opgeslagen" : "bundled"}
-              </span>
+    <div className="min-w-0 space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 p-3">
+          <div className="min-w-0 space-y-1">
+            <h3 className="font-semibold text-slate-800">Tabellen configuratie</h3>
+            <p className="text-sm text-slate-500">
+              Bewerk de herwerkte tabellen voor alle gebruikers.
+              {meta && (
+                <span className="text-slate-400">
+                  {" "}
+                  · v{meta.version} ·{" "}
+                  {meta.source === "saved" ? "opgeslagen" : "standaard"}
+                </span>
+              )}
             </p>
-            <p>Versie: {meta?.version ?? "—"}</p>
-            <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {dirty && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Niet opgeslagen
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setHelpOpen((open) => !open)}
+              aria-expanded={helpOpen}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              <ChevronIcon open={helpOpen} className="h-3.5 w-3.5" />
+              Uitleg
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={saving || loading || !dirty || !adminToken.trim()}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          <SaveIcon />
-          {saving ? "Opslaan…" : "Opslaan"}
-        </button>
-        <button
-          type="button"
-          onClick={handleDiscard}
-          disabled={saving || loading || !dirty}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-        >
-          Wijzigingen verwerpen
-        </button>
-        <button
-          type="button"
-          onClick={() => void handleReset()}
-          disabled={saving || loading}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-        >
-          <ResetIcon />
-          Reset naar defaults
-        </button>
-        <p className="text-xs text-slate-500">
-          Opslaan — alle tabelconfiguraties worden opgeslagen
-        </p>
-      </div>
+        {helpOpen && (
+          <div className="space-y-3 border-t border-slate-100 px-3 pb-3 pt-2 text-sm text-slate-600">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="font-medium text-slate-700">Celverwijzingen</p>
+                <ul className="mt-1.5 space-y-1 text-xs leading-relaxed">
+                  <li>
+                    <code className="rounded bg-slate-100 px-1 font-mono">mar:29/58</code>{" "}
+                    — bedrag uit PDF
+                  </li>
+                  <li>
+                    <code className="rounded bg-slate-100 px-1 font-mono">ratio:id</code>{" "}
+                    — berekende ratio
+                  </li>
+                  <li>
+                    <code className="rounded bg-slate-100 px-1 font-mono">cell:boekjaar</code>{" "}
+                    — andere kolom
+                  </li>
+                  <li>
+                    <code className="rounded bg-slate-100 px-1 font-mono">pct:vorig,boekjaar</code>{" "}
+                    — % verschil
+                  </li>
+                  <li>Typ een prefix voor suggesties.</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium text-slate-700">Rij &amp; model</p>
+                <ul className="mt-1.5 space-y-1 text-xs leading-relaxed">
+                  <li>
+                    <span className="font-semibold">i</span> — toelichting bij rij
+                  </li>
+                  <li>← → — inspringing</li>
+                  <li>
+                    Kies model (Volledig / Verkort / Micro) als formules per
+                    variant verschillen
+                  </li>
+                  <li>Opslaan schrijft alle vier tabellen als één versie.</li>
+                </ul>
+              </div>
+            </div>
+            <div className="grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+              <label className="block text-xs font-medium text-slate-600">
+                Admin-wachtwoord
+                <input
+                  type="password"
+                  value={adminToken}
+                  autoComplete="off"
+                  onChange={(event) => handleTokenChange(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                />
+              </label>
+              <div className="text-xs text-slate-500">
+                <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {dirty && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          Niet-opgeslagen wijzigingen
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || loading || !dirty || !adminToken.trim()}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <SaveIcon />
+            {saving ? "Opslaan…" : "Opslaan"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDiscard}
+            disabled={saving || loading || !dirty}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Verwerpen
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleReset()}
+            disabled={saving || loading || !adminToken.trim()}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <ResetIcon />
+            Reset
+          </button>
+          {!helpOpen && (
+            <label className="ml-auto flex min-w-[10rem] max-w-xs flex-1 items-center gap-2 text-xs text-slate-500 sm:flex-none">
+              <span className="shrink-0">Admin</span>
+              <input
+                type="password"
+                value={adminToken}
+                autoComplete="off"
+                onChange={(event) => handleTokenChange(event.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
+              />
+            </label>
+          )}
         </div>
-      )}
+      </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </div>
       )}
       {notice && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           {notice}
         </div>
       )}
 
-      <SubTabs items={VIEW_ITEMS} value={view} onChange={setView} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="space-y-3 border-b border-slate-100 p-3">
+          <SubTabs items={VIEW_ITEMS} value={view} onChange={setView} />
 
-      {view === "herwerkte_resultatenrekening" && (
-        <div
-          role="group"
-          aria-label="Modelgroep"
-          className="inline-flex overflow-hidden rounded-lg ring-1 ring-slate-200"
-        >
-          <button
-            type="button"
-            onClick={() => setResultGroup("full")}
-            className={`px-3 py-1.5 text-sm font-medium ${
-              resultGroup === "full"
-                ? "bg-slate-800 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {MODEL_LABELS.full}
-          </button>
-          <button
-            type="button"
-            onClick={() => setResultGroup("verkort_micro")}
-            className={`px-3 py-1.5 text-sm font-medium ${
-              resultGroup === "verkort_micro"
-                ? "bg-slate-800 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            Verkort + Micro
-          </button>
-        </div>
-      )}
-
-      {activeTable && (
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h4 className="font-semibold text-slate-800">
-                {VIEW_ITEMS.find((item) => item.id === view)?.label}
-              </h4>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                <span>Gebruikt voor:</span>
-                {activeTable.model_scope.map((kind) => (
-                  <span
-                    key={kind}
-                    className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700 ring-1 ring-slate-200"
-                  >
-                    {MODEL_LABELS[kind]}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          {view === "herwerkte_resultatenrekening" && (
+            <div
+              role="group"
+              aria-label="Resultatenrekening variant"
+              className="inline-flex overflow-hidden rounded-lg ring-1 ring-slate-200"
+            >
               <button
                 type="button"
-                disabled={saving || loading}
-                onClick={() => updateActiveTable(addTableRow(activeTable))}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => setResultGroup("full")}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  resultGroup === "full"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
               >
-                <PlusIcon />
-                + Rij
+                {MODEL_LABELS.full}
               </button>
               <button
                 type="button"
-                disabled={saving || loading}
-                onClick={() => updateActiveTable(addTableColumn(activeTable))}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => setResultGroup("verkort_micro")}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  resultGroup === "verkort_micro"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
               >
-                <PlusIcon />
-                + Kolom
+                Verkort + Micro
               </button>
-            </div>
-          </div>
-
-          {activeTable.model_scope.length > 1 && (
-            <div className="space-y-2">
-              <p className="text-sm text-slate-600">
-                Kies welk model je bewerkt. Formules kunnen per model verschillen;
-                niet ingestelde modellen gebruiken de gedeelde standaardwaarden.
-              </p>
-              <div
-                role="group"
-                aria-label="Model bewerken"
-                className="inline-flex flex-wrap gap-2"
-              >
-                {activeTable.model_scope.map((kind) => {
-                  const hasOverrides = tableHasModelOverrides(
-                    activeTable.rows,
-                    kind,
-                  );
-                  return (
-                    <button
-                      key={kind}
-                      type="button"
-                      onClick={() => setEditModel(kind)}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ${
-                        editModel === kind
-                          ? "bg-slate-800 text-white ring-slate-800"
-                          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {MODEL_LABELS[kind]}
-                      {hasOverrides && (
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            editModel === kind ? "bg-emerald-300" : "bg-emerald-500"
-                          }`}
-                          title="Heeft eigen formules"
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           )}
 
+          {activeTable && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {activeTable.model_scope.length > 1 && (
+                  <>
+                    <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Bewerk
+                    </span>
+                    <div
+                      role="group"
+                      aria-label="Model bewerken"
+                      className="inline-flex flex-wrap gap-1"
+                    >
+                      {activeTable.model_scope.map((kind) => {
+                        const hasOverrides = tableHasModelOverrides(
+                          activeTable.rows,
+                          kind,
+                        );
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            onClick={() => setEditModel(kind)}
+                            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-medium ring-1 ${
+                              editModel === kind
+                                ? "bg-slate-800 text-white ring-slate-800"
+                                : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            {MODEL_LABELS[kind]}
+                            {hasOverrides && (
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  editModel === kind
+                                    ? "bg-emerald-300"
+                                    : "bg-emerald-500"
+                                }`}
+                                title="Eigen formules"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={() => updateActiveTable(addTableRow(activeTable))}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg bg-white px-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <PlusIcon />
+                  Rij
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={() => updateActiveTable(addTableColumn(activeTable))}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg bg-white px-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <PlusIcon />
+                  Kolom
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {activeTable && (
           <EditableFinancialTable
             table={activeTable}
             onChange={updateActiveTable}
@@ -538,44 +538,42 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             ratioSpecs={ratioSpecs}
             activeModel={editModel}
           />
-        </div>
-      )}
+        )}
 
-      {loading && (
-        <p className="text-sm text-slate-600">Configuratie laden…</p>
-      )}
+        {loading && (
+          <p className="p-3 text-sm text-slate-600">Configuratie laden…</p>
+        )}
+      </div>
 
       {history.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h4 className="font-semibold text-slate-800">Geschiedenis</h4>
-          <p className="mt-1 text-sm text-slate-600">
-            Een herstel maakt een nieuwe versie van alle vier de
-            tabelconfiguraties; de huidige configuratie wordt eerst bewaard.
-          </p>
-          <ul className="mt-3 space-y-2">
+        <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+            Geschiedenis ({history.length})
+          </summary>
+          <ul className="space-y-2 border-t border-slate-100 px-4 py-3">
             {history.slice(0, 20).map((item) => (
               <li
                 key={item.version}
                 className="flex flex-wrap items-center justify-between gap-2 text-sm"
               >
                 <span className="text-slate-700">
-                  Versie {item.version}
+                  v{item.version}
                   <span className="ml-2 text-slate-500">
                     {formatUpdatedAt(item.updated_at)}
                   </span>
                 </span>
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || !adminToken.trim()}
                   onClick={() => void handleRestore(item.version)}
-                  className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg bg-white px-2.5 py-1 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Herstellen
                 </button>
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
     </div>
   );
