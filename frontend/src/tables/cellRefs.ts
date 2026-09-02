@@ -4,31 +4,40 @@ import type {
   RatioResult,
   StatementLine,
   TableColumn,
+  TableRow,
 } from "../types";
-import { formatAmount, formatRatio } from "../utils/format";
+import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
 
 export type CellYear = "current" | "previous";
 
 export type ParsedCellRef =
   | { kind: "literal"; text: string }
   | { kind: "mar"; expr: string; year: CellYear | "auto" }
-  | { kind: "ratio"; id: string };
+  | { kind: "ratio"; id: string }
+  | { kind: "cell"; columnRef: string }
+  | { kind: "pct"; fromRef: string; toRef: string };
 
 export interface ResolvedCell {
-  /** Display text for the cell. */
   text: string;
-  /** Tooltip / title with the original reference when resolved. */
   title?: string;
-  /** True when the cell is a mar:/ratio: reference. */
   isRef: boolean;
-  /** True when a reference could not be resolved. */
   missing: boolean;
 }
 
-/** VOL→MIC style aliases, mirrored from backend CodeAggregator. */
+export interface CellResolveContext {
+  row: TableRow;
+  columns: TableColumn[];
+  cellIndex: number;
+  column: TableColumn;
+  result: AnalysisResult | null | undefined;
+  amountFormat?: AmountFormat;
+}
+
 const CODE_ALIASES: Record<string, readonly string[]> = {
   "70/76A": ["70"],
 };
+
+const MAX_RESOLVE_DEPTH = 12;
 
 function allStatementLines(result: AnalysisResult): StatementLine[] {
   return [
@@ -67,7 +76,6 @@ function lookupCode(
   return null;
 }
 
-/** Evaluate a MAR expression like `29/58` or `29/58 - 3` (slash is part of the code). */
 export function evaluateMarExpr(
   expr: string,
   maps: { current: Map<string, number>; previous: Map<string, number> },
@@ -113,16 +121,6 @@ export function defaultYearForColumn(column: TableColumn): CellYear {
   return "current";
 }
 
-/**
- * Parse a stored cell string into a reference or literal.
- *
- * Supported forms:
- * - `mar:29/58` / `mar:29/58 - 3` (year from column)
- * - `mar.current:…` / `mar.previous:…` / `mar.prev:…`
- * - `@29/58` (shorthand for mar:)
- * - `ratio:current_ratio` (ratio id)
- * - anything else → literal text
- */
 function yearFromToken(token: string): CellYear | "auto" {
   const value = token.toLowerCase();
   if (value === "previous" || value === "prev" || value === "vorig") {
@@ -137,6 +135,20 @@ function yearFromToken(token: string): CellYear | "auto" {
 export function parseCellRef(raw: string): ParsedCellRef {
   const text = raw.trim();
   if (!text) return { kind: "literal", text: "" };
+
+  const pctMatch = /^pct:([^,]+),([^,]+)$/i.exec(text);
+  if (pctMatch) {
+    return {
+      kind: "pct",
+      fromRef: pctMatch[1].trim(),
+      toRef: pctMatch[2].trim(),
+    };
+  }
+
+  const cellMatch = /^cell:(.+)$/i.exec(text);
+  if (cellMatch) {
+    return { kind: "cell", columnRef: cellMatch[1].trim() };
+  }
 
   const ratioMatch = /^(?:ratio:|ratio\/)(.+)$/i.exec(text);
   if (ratioMatch) {
@@ -178,11 +190,21 @@ export function isCellRef(raw: string): boolean {
   return parseCellRef(raw).kind !== "literal";
 }
 
-export function cellRefKind(raw: string): "mar" | "ratio" | null {
+export function cellRefKind(
+  raw: string,
+): "mar" | "ratio" | "cell" | "pct" | null {
   const parsed = parseCellRef(raw);
-  if (parsed.kind === "mar") return "mar";
-  if (parsed.kind === "ratio") return "ratio";
-  return null;
+  if (parsed.kind === "literal") return null;
+  return parsed.kind;
+}
+
+function findColumnIndex(columns: TableColumn[], ref: string): number {
+  const needle = ref.trim().toLowerCase();
+  return columns.findIndex(
+    (column) =>
+      column.id.toLowerCase() === needle ||
+      column.label.trim().toLowerCase() === needle,
+  );
 }
 
 function findRatio(
@@ -193,19 +215,159 @@ function findRatio(
   return ratios?.find((ratio) => ratio.id.toLowerCase() === needle);
 }
 
+interface NumericResult {
+  value: number | null;
+  missing: boolean;
+  title?: string;
+}
+
+function resolveColumnRef(
+  columnRef: string,
+  context: CellResolveContext,
+  depth: number,
+  visiting: Set<number>,
+): NumericResult {
+  const targetIndex = findColumnIndex(context.columns, columnRef);
+  if (targetIndex < 0) {
+    return {
+      value: null,
+      missing: true,
+      title: `Onbekende kolom: ${columnRef}`,
+    };
+  }
+  if (visiting.has(targetIndex)) {
+    return { value: null, missing: true, title: "Circulaire celverwijzing" };
+  }
+  const raw = context.row.cells[targetIndex] ?? "";
+  return resolveCellNumeric(
+    raw,
+    {
+      ...context,
+      cellIndex: targetIndex,
+      column: context.columns[targetIndex],
+    },
+    depth + 1,
+    visiting,
+  );
+}
+
+function resolveCellNumeric(
+  raw: string,
+  context: CellResolveContext,
+  depth = 0,
+  visiting = new Set<number>(),
+): NumericResult {
+  if (depth > MAX_RESOLVE_DEPTH) {
+    return { value: null, missing: true, title: "Te diepe verwijzing" };
+  }
+
+  const parsed = parseCellRef(raw);
+
+  if (parsed.kind === "literal") {
+    const num = Number(raw.trim().replace(/\s/g, "").replace(",", "."));
+    if (!Number.isNaN(num) && raw.trim() !== "") {
+      return { value: num, missing: false };
+    }
+    return { value: null, missing: false };
+  }
+
+  if (!context.result) {
+    return {
+      value: null,
+      missing: true,
+      title: "Analyseer eerst een PDF om deze verwijzing te berekenen.",
+    };
+  }
+
+  if (parsed.kind === "ratio") {
+    const ratio = findRatio(context.result.ratios, parsed.id);
+    if (!ratio) {
+      return {
+        value: null,
+        missing: true,
+        title: `Onbekende ratio-id: ${parsed.id}`,
+      };
+    }
+    if (ratio.value === null) {
+      return {
+        value: null,
+        missing: true,
+        title: ratio.missing_codes.length
+          ? `Ratio ${ratio.id}: ontbrekende codes ${ratio.missing_codes.join(", ")}`
+          : `Ratio ${ratio.id}: geen waarde`,
+      };
+    }
+    return { value: ratio.value, missing: false, title: ratio.name };
+  }
+
+  if (parsed.kind === "cell") {
+    visiting.add(context.cellIndex);
+    const result = resolveColumnRef(parsed.columnRef, context, depth, visiting);
+    visiting.delete(context.cellIndex);
+    return result;
+  }
+
+  if (parsed.kind === "pct") {
+    visiting.add(context.cellIndex);
+    const from = resolveColumnRef(parsed.fromRef, context, depth, visiting);
+    const to = resolveColumnRef(parsed.toRef, context, depth, visiting);
+    visiting.delete(context.cellIndex);
+    if (from.missing || to.missing || from.value === null || to.value === null) {
+      return {
+        value: null,
+        missing: true,
+        title: from.title ?? to.title ?? "Kon percentage niet berekenen",
+      };
+    }
+    if (from.value === 0) {
+      return {
+        value: null,
+        missing: true,
+        title: "Delen door nul (basisbedrag is 0)",
+      };
+    }
+    const pct = ((to.value - from.value) / Math.abs(from.value)) * 100;
+    return {
+      value: pct,
+      missing: false,
+      title: `${parsed.fromRef} → ${parsed.toRef}`,
+    };
+  }
+
+  const year =
+    parsed.year === "auto"
+      ? defaultYearForColumn(context.column)
+      : parsed.year;
+  const maps = buildAmountMaps(allStatementLines(context.result));
+  const { value, missing } = evaluateMarExpr(parsed.expr, maps, year);
+  if (value === null) {
+    return {
+      value: null,
+      missing: true,
+      title: missing.length
+        ? `Ontbrekende MAR-code(s): ${missing.join(", ")}`
+        : `Geen bedrag voor ${parsed.expr}`,
+    };
+  }
+  return {
+    value,
+    missing: false,
+    title: `${parsed.expr} (${year === "current" ? "boekjaar" : "vorig"})`,
+  };
+}
+
 export function resolveCellValue(
   raw: string,
-  column: TableColumn,
-  result: AnalysisResult | null | undefined,
-  amountFormat: AmountFormat = "full",
+  context: CellResolveContext,
 ): ResolvedCell {
   const parsed = parseCellRef(raw);
+  const amountFormat = context.amountFormat ?? "full";
 
   if (parsed.kind === "literal") {
     return { text: raw, isRef: false, missing: false };
   }
 
-  if (!result) {
+  if (!context.result) {
     return {
       text: raw.trim(),
       title: "Analyseer eerst een PDF om deze verwijzing te berekenen.",
@@ -215,7 +377,7 @@ export function resolveCellValue(
   }
 
   if (parsed.kind === "ratio") {
-    const ratio = findRatio(result.ratios, parsed.id);
+    const ratio = findRatio(context.result.ratios, parsed.id);
     if (!ratio) {
       return {
         text: "—",
@@ -242,9 +404,47 @@ export function resolveCellValue(
     };
   }
 
+  if (parsed.kind === "pct") {
+    const numeric = resolveCellNumeric(raw, context);
+    if (numeric.value === null) {
+      return {
+        text: "—",
+        title: numeric.title,
+        isRef: true,
+        missing: numeric.missing,
+      };
+    }
+    return {
+      text: formatSignedPercent(numeric.value),
+      title: numeric.title,
+      isRef: true,
+      missing: false,
+    };
+  }
+
+  if (parsed.kind === "cell") {
+    const numeric = resolveCellNumeric(raw, context);
+    if (numeric.value === null) {
+      return {
+        text: "—",
+        title: numeric.title,
+        isRef: true,
+        missing: numeric.missing,
+      };
+    }
+    return {
+      text: formatAmount(numeric.value, amountFormat),
+      title: numeric.title ?? `cell:${parsed.columnRef}`,
+      isRef: true,
+      missing: false,
+    };
+  }
+
   const year =
-    parsed.year === "auto" ? defaultYearForColumn(column) : parsed.year;
-  const maps = buildAmountMaps(allStatementLines(result));
+    parsed.year === "auto"
+      ? defaultYearForColumn(context.column)
+      : parsed.year;
+  const maps = buildAmountMaps(allStatementLines(context.result));
   const { value, missing } = evaluateMarExpr(parsed.expr, maps, year);
   if (value === null) {
     return {

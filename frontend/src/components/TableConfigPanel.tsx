@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ApiError,
+  getRatiosConfig,
   getTablesConfig,
   getTablesHistory,
   resetTablesConfig,
@@ -9,6 +10,7 @@ import {
 } from "../api/client";
 import type {
   FinancialTableConfig,
+  RatioSpec,
   TableHistoryEntry,
   TabellenViewId,
   TablesConfigMeta,
@@ -99,6 +101,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [ratioSpecs, setRatioSpecs] = useState<RatioSpec[]>([]);
 
   const dirty = useMemo(
     () => serializeTables(draft) !== serializeTables(saved),
@@ -144,6 +147,9 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
   useEffect(() => {
     void loadConfig();
+    void getRatiosConfig()
+      .then(setRatioSpecs)
+      .catch(() => setRatioSpecs([]));
   }, []);
 
   function handleTokenChange(value: string) {
@@ -279,7 +285,31 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
           <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
             ratio:current_ratio
           </code>{" "}
-          (ratio-id). Het jaar volgt de kolom (boekjaar/vorig), of forceer met{" "}
+          (ratio-id),{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            cell:boekjaar
+          </code>{" "}
+          (andere kolom in dezelfde rij), en{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            pct:vorig,boekjaar
+          </code>{" "}
+          (% verschil tussen twee kolommen). Typ{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            mar:
+          </code>
+          ,{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            ratio:
+          </code>
+          ,{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            cell:
+          </code>{" "}
+          of{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            pct:
+          </code>{" "}
+          voor suggesties. Het jaar volgt de kolom (boekjaar/vorig), of forceer met{" "}
           <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
             mar.current:
           </code>{" "}
@@ -441,6 +471,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             onChange={updateActiveTable}
             disabled={saving || loading}
             editable={true}
+            ratioSpecs={ratioSpecs}
           />
         </div>
       )}

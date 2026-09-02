@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { CellRefInput } from "./CellRefInput";
 import {
   cellRefKind,
   resolveCellValue,
@@ -7,6 +8,7 @@ import type {
   AmountFormat,
   AnalysisResult,
   FinancialTableConfig,
+  RatioSpec,
   TableColumn,
   TableRow,
 } from "../types";
@@ -25,6 +27,7 @@ interface EditableFinancialTableProps {
   /** When set in view mode, mar:/ratio: cells are resolved to live values. */
   analysisResult?: AnalysisResult | null;
   amountFormat?: AmountFormat;
+  ratioSpecs?: RatioSpec[];
 }
 
 const MAX_INDENT = 6;
@@ -73,23 +76,17 @@ function cellTextClass(column: TableColumn, index: number): string {
   return `px-3 py-2 text-sm text-slate-800 ${cellAlignClass(column, index)}`.trim();
 }
 
-function CellRefBadge({ kind }: { kind: "mar" | "ratio" }) {
-  return (
-    <span
-      className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-        kind === "ratio"
-          ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
-          : "bg-violet-50 text-violet-700 ring-1 ring-violet-200"
-      }`}
-    >
-      {kind === "ratio" ? "ratio" : "mar"}
-    </span>
-  );
-}
-
 function cellPlaceholder(column: TableColumn, index: number): string {
   const key = `${column.id} ${column.label}`.toLowerCase();
   if (key.includes("code")) return "29/58";
+  if (
+    key.includes("verschil") ||
+    key.includes("diff") ||
+    key.includes("%") ||
+    key.includes("pct")
+  ) {
+    return "pct:vorig,boekjaar";
+  }
   if (
     key.includes("boekjaar") ||
     key.includes("vorig") ||
@@ -97,7 +94,7 @@ function cellPlaceholder(column: TableColumn, index: number): string {
     key.includes("amount") ||
     index > 0
   ) {
-    return "mar:29/58 of ratio:id";
+    return "mar:29/58 of cell:boekjaar";
   }
   return "";
 }
@@ -222,6 +219,7 @@ export function EditableFinancialTable({
   editable = true,
   analysisResult = null,
   amountFormat = "full",
+  ratioSpecs = [],
 }: EditableFinancialTableProps) {
   function patch(next: FinancialTableConfig) {
     onChange?.(next);
@@ -416,12 +414,14 @@ export function EditableFinancialTable({
                     const refKind = cellRefKind(raw);
                     const resolved =
                       !editable && refKind
-                        ? resolveCellValue(
-                            raw,
+                        ? resolveCellValue(raw, {
+                            row,
+                            columns: table.columns,
+                            cellIndex,
                             column,
-                            analysisResult,
+                            result: analysisResult,
                             amountFormat,
-                          )
+                          })
                         : null;
 
                     return (
@@ -434,30 +434,20 @@ export function EditableFinancialTable({
                         }
                       >
                         {editable ? (
-                          <div className="flex items-center gap-1">
-                            {refKind && <CellRefBadge kind={refKind} />}
-                            <input
-                              value={raw}
-                              disabled={disabled}
-                              placeholder={cellPlaceholder(column, cellIndex)}
-                              onChange={(event) =>
-                                updateCell(
-                                  rowIndex,
-                                  cellIndex,
-                                  event.target.value,
-                                )
-                              }
-                              aria-label={`${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`}
-                              title={
-                                refKind === "mar"
-                                  ? "MAR-verwijzing — jaar volgt de kolom (boekjaar/vorig), of mar.current: / mar.previous:"
-                                  : refKind === "ratio"
-                                    ? "Ratio-verwijzing via id uit Ratio-configuratie"
-                                    : undefined
-                              }
-                              className={cellInputClass(column, cellIndex)}
-                            />
-                          </div>
+                          <CellRefInput
+                            value={raw}
+                            disabled={disabled}
+                            column={column}
+                            cellIndex={cellIndex}
+                            columns={table.columns}
+                            ratioSpecs={ratioSpecs}
+                            placeholder={cellPlaceholder(column, cellIndex)}
+                            ariaLabel={`${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`}
+                            className={cellInputClass(column, cellIndex)}
+                            onChange={(value) =>
+                              updateCell(rowIndex, cellIndex, value)
+                            }
+                          />
                         ) : resolved ? (
                           <span
                             title={resolved.title}
