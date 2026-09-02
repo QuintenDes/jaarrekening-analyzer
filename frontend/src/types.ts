@@ -55,6 +55,8 @@ export interface TableRow {
   indent?: number;
   /** Optional row note shown via the eye badge. */
   info?: string;
+  /** Per-model cell overrides when formulas differ between Full / Verkort / Micro. */
+  cells_by_model?: Partial<Record<ModelKind, string[]>>;
 }
 
 export interface FinancialTableConfig {

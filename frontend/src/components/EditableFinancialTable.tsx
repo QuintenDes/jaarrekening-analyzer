@@ -1,20 +1,24 @@
-import { useEffect, useId, useRef, useState } from "react";
 import { CellRefInput } from "./CellRefInput";
+import { RowInfoBadge } from "./RowInfoBadge";
 import {
   cellRefKind,
   resolveCellValue,
 } from "../tables/cellRefs";
+import {
+  cellsForModel,
+  updateCellsForModel,
+} from "../tables/rowCells";
 import type {
   AmountFormat,
   AnalysisResult,
   FinancialTableConfig,
+  ModelKind,
   RatioSpec,
   TableColumn,
   TableRow,
 } from "../types";
 import {
   DeleteIcon,
-  EyeIcon,
   IndentDecreaseIcon,
   IndentIncreaseIcon,
 } from "./icons";
@@ -28,6 +32,8 @@ interface EditableFinancialTableProps {
   analysisResult?: AnalysisResult | null;
   amountFormat?: AmountFormat;
   ratioSpecs?: RatioSpec[];
+  /** Which model variant to show/edit (Full / Verkort / Micro). */
+  activeModel?: ModelKind;
 }
 
 const MAX_INDENT = 6;
@@ -119,97 +125,19 @@ export function addTableColumn(table: FinancialTableConfig): FinancialTableConfi
   return {
     ...table,
     columns: [...table.columns, { id: newId("col"), label: "Kolom" }],
-    rows: table.rows.map((row) => ({ ...row, cells: [...row.cells, ""] })),
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: [...row.cells, ""],
+      cells_by_model: row.cells_by_model
+        ? Object.fromEntries(
+            Object.entries(row.cells_by_model).map(([kind, cells]) => [
+              kind,
+              [...cells, ""],
+            ]),
+          )
+        : undefined,
+    })),
   };
-}
-
-function RowInfoBadge({
-  info,
-  editable,
-  disabled,
-  onChange,
-  rowLabel,
-}: {
-  info: string;
-  editable: boolean;
-  disabled?: boolean;
-  onChange?: (value: string) => void;
-  rowLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const hasInfo = info.trim().length > 0;
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  if (!editable && !hasInfo) {
-    return null;
-  }
-
-  return (
-    <div ref={rootRef} className="relative shrink-0">
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label={
-          hasInfo
-            ? `Informatie voor ${rowLabel || "rij"}`
-            : `Informatie toevoegen voor ${rowLabel || "rij"}`
-        }
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        title={hasInfo ? "Informatie bekijken" : "Informatie toevoegen"}
-        onClick={() => setOpen((value) => !value)}
-        className={`inline-flex h-6 w-6 items-center justify-center rounded-full ring-1 transition ${
-          hasInfo
-            ? "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100"
-            : "bg-white text-slate-400 ring-slate-200 hover:bg-slate-50 hover:text-slate-600"
-        } disabled:opacity-40`}
-      >
-        <EyeIcon className="h-3.5 w-3.5" />
-      </button>
-      {open && (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-label={`Informatie ${rowLabel || "rij"}`}
-          className="absolute left-0 top-8 z-40 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
-        >
-          {editable ? (
-            <textarea
-              value={info}
-              disabled={disabled}
-              onChange={(event) => onChange?.(event.target.value)}
-              rows={4}
-              placeholder="Toelichting bij deze rij…"
-              className="w-full resize-y rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-            />
-          ) : (
-            <p className="whitespace-pre-wrap px-1 py-1 text-sm text-slate-700">
-              {info}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function EditableFinancialTable({
@@ -220,7 +148,17 @@ export function EditableFinancialTable({
   analysisResult = null,
   amountFormat = "full",
   ratioSpecs = [],
+  activeModel,
 }: EditableFinancialTableProps) {
+  const model = activeModel ?? table.model_scope[0] ?? "full";
+  const columnCount = table.columns.length;
+
+  function rowForModel(row: TableRow): TableRow {
+    return {
+      ...row,
+      cells: cellsForModel(row, model, columnCount),
+    };
+  }
   function patch(next: FinancialTableConfig) {
     onChange?.(next);
   }
@@ -261,9 +199,10 @@ export function EditableFinancialTable({
 
   function updateCell(rowIndex: number, cellIndex: number, value: string) {
     updateRow(rowIndex, (row) => {
-      const cells = [...row.cells];
+      const current = cellsForModel(row, model, columnCount);
+      const cells = [...current];
       cells[cellIndex] = value;
-      return { ...row, cells };
+      return updateCellsForModel(row, model, cells, table.model_scope);
     });
   }
 
@@ -275,6 +214,14 @@ export function EditableFinancialTable({
       rows: table.rows.map((row) => ({
         ...row,
         cells: row.cells.filter((_, i) => i !== index),
+        cells_by_model: row.cells_by_model
+          ? Object.fromEntries(
+              Object.entries(row.cells_by_model).map(([kind, cells]) => [
+                kind,
+                cells.filter((_, i) => i !== index),
+              ]),
+            )
+          : undefined,
       })),
     });
   }
@@ -410,12 +357,13 @@ export function EditableFinancialTable({
                     </div>
                   </th>
                   {table.columns.map((column, cellIndex) => {
-                    const raw = row.cells[cellIndex] ?? "";
+                    const displayRow = rowForModel(row);
+                    const raw = displayRow.cells[cellIndex] ?? "";
                     const refKind = cellRefKind(raw);
                     const resolved =
                       !editable && refKind
                         ? resolveCellValue(raw, {
-                            row,
+                            row: displayRow,
                             columns: table.columns,
                             cellIndex,
                             column,

@@ -365,6 +365,20 @@ def test_validate_accepts_row_indent_and_info() -> None:
     assert row["info"] == "Toelichting"
 
 
+def test_validate_accepts_cells_by_model() -> None:
+    bundled = yaml.safe_load(BUNDLED_TABLES_PATH.read_text(encoding="utf-8"))
+    table = bundled["tables"][0]
+    col_count = len(table["columns"])
+    table["rows"][0]["cells_by_model"] = {
+        "verkort": table["rows"][0]["cells"],
+        "micro": ["mar:70", *([""] * (col_count - 1))],
+    }
+    validated = validate_tables_config(bundled["tables"])
+    row = validated[0]["rows"][0]
+    assert "verkort" in row["cells_by_model"]
+    assert row["cells_by_model"]["micro"][0] == "mar:70"
+
+
 def test_validate_rejects_invalid_indent() -> None:
     bundled = yaml.safe_load(BUNDLED_TABLES_PATH.read_text(encoding="utf-8"))
     bundled["tables"][0]["rows"][0]["indent"] = 99

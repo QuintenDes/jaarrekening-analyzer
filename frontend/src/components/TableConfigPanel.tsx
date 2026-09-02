@@ -10,6 +10,7 @@ import {
 } from "../api/client";
 import type {
   FinancialTableConfig,
+  ModelKind,
   RatioSpec,
   TableHistoryEntry,
   TabellenViewId,
@@ -21,6 +22,7 @@ import {
   VIEW_ITEMS,
   type ResultGroup,
 } from "../tables/views";
+import { tableHasModelOverrides } from "../tables/rowCells";
 import {
   addTableColumn,
   addTableRow,
@@ -55,7 +57,18 @@ function cloneTables(tables: FinancialTableConfig[]): FinancialTableConfig[] {
     ...table,
     model_scope: [...table.model_scope],
     columns: table.columns.map((column) => ({ ...column })),
-    rows: table.rows.map((row) => ({ ...row, cells: [...row.cells] })),
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: [...row.cells],
+      cells_by_model: row.cells_by_model
+        ? Object.fromEntries(
+            Object.entries(row.cells_by_model).map(([kind, cells]) => [
+              kind,
+              [...cells],
+            ]),
+          )
+        : undefined,
+    })),
   }));
 }
 
@@ -102,6 +115,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [ratioSpecs, setRatioSpecs] = useState<RatioSpec[]>([]);
+  const [editModel, setEditModel] = useState<ModelKind>("full");
 
   const dirty = useMemo(
     () => serializeTables(draft) !== serializeTables(saved),
@@ -110,6 +124,13 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
   const activeTableId = tableIdForView(view, resultGroup);
   const activeTable = draft.find((table) => table.id === activeTableId) ?? null;
+
+  useEffect(() => {
+    if (!activeTable) return;
+    if (!activeTable.model_scope.includes(editModel)) {
+      setEditModel(activeTable.model_scope[0] ?? "full");
+    }
+  }, [activeTable, editModel]);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -409,7 +430,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
                 : "bg-white text-slate-600 hover:bg-slate-50"
             }`}
           >
-            Full
+            {MODEL_LABELS.full}
           </button>
           <button
             type="button"
@@ -466,12 +487,56 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             </div>
           </div>
 
+          {activeTable.model_scope.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-600">
+                Kies welk model je bewerkt. Formules kunnen per model verschillen;
+                niet ingestelde modellen gebruiken de gedeelde standaardwaarden.
+              </p>
+              <div
+                role="group"
+                aria-label="Model bewerken"
+                className="inline-flex flex-wrap gap-2"
+              >
+                {activeTable.model_scope.map((kind) => {
+                  const hasOverrides = tableHasModelOverrides(
+                    activeTable.rows,
+                    kind,
+                  );
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setEditModel(kind)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ${
+                        editModel === kind
+                          ? "bg-slate-800 text-white ring-slate-800"
+                          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {MODEL_LABELS[kind]}
+                      {hasOverrides && (
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            editModel === kind ? "bg-emerald-300" : "bg-emerald-500"
+                          }`}
+                          title="Heeft eigen formules"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <EditableFinancialTable
             table={activeTable}
             onChange={updateActiveTable}
             disabled={saving || loading}
             editable={true}
             ratioSpecs={ratioSpecs}
+            activeModel={editModel}
           />
         </div>
       )}

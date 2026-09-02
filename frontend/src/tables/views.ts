@@ -10,7 +10,7 @@ export const VIEW_ITEMS: { id: TabellenViewId; label: string }[] = [
 ];
 
 export const MODEL_LABELS: Record<ModelKind, string> = {
-  full: "Full",
+  full: "Volledig",
   verkort: "Verkort",
   micro: "Micro",
 };

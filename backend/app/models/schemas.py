@@ -71,6 +71,7 @@ class TableRow(BaseModel):
     cells: list[str] = Field(default_factory=list)
     indent: int = 0
     info: str = ""
+    cells_by_model: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class FinancialTableConfig(BaseModel):

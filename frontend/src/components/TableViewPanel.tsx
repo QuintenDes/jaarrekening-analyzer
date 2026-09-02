@@ -4,8 +4,10 @@ import type {
   AmountFormat,
   AnalysisResult,
   FinancialTableConfig,
+  ModelKind,
   TabellenViewId,
 } from "../types";
+import { inferModelFromSchema } from "../tables/rowCells";
 import {
   MODEL_LABELS,
   tableIdForView,
@@ -29,9 +31,22 @@ export function TableViewPanel({
   const [resultGroup, setResultGroup] = useState<ResultGroup>("full");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewModel, setViewModel] = useState<ModelKind>("full");
 
   const activeTableId = tableIdForView(view, resultGroup);
   const activeTable = tables.find((table) => table.id === activeTableId) ?? null;
+
+  useEffect(() => {
+    if (!activeTable) return;
+    const inferred = inferModelFromSchema(analysisResult?.schema_format);
+    if (inferred && activeTable.model_scope.includes(inferred)) {
+      setViewModel(inferred);
+      return;
+    }
+    if (!activeTable.model_scope.includes(viewModel)) {
+      setViewModel(activeTable.model_scope[0] ?? "full");
+    }
+  }, [activeTable, analysisResult?.schema_format, viewModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +106,7 @@ export function TableViewPanel({
                 : "bg-white text-slate-600 hover:bg-slate-50"
             }`}
           >
-            Full
+            {MODEL_LABELS.full}
           </button>
           <button
             type="button"
@@ -126,11 +141,35 @@ export function TableViewPanel({
             </div>
           </div>
 
+          {activeTable.model_scope.length > 1 && (
+            <div
+              role="group"
+              aria-label="Model weergave"
+              className="inline-flex flex-wrap gap-2"
+            >
+              {activeTable.model_scope.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setViewModel(kind)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ${
+                    viewModel === kind
+                      ? "bg-slate-800 text-white ring-slate-800"
+                      : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {MODEL_LABELS[kind]}
+                </button>
+              ))}
+            </div>
+          )}
+
           <EditableFinancialTable
             table={activeTable}
             editable={false}
             analysisResult={analysisResult}
             amountFormat={amountFormat}
+            activeModel={viewModel}
           />
         </div>
       )}
