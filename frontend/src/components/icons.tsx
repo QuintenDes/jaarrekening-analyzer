@@ -160,3 +160,34 @@ export function PanelRightIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function EyeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  );
+}
+
+export function IndentIncreaseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 18h16" />
+      <path d="M10 12h10" />
+      <path d="m4 9 3 3-3 3" />
+    </Icon>
+  );
+}
+
+export function IndentDecreaseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 18h16" />
+      <path d="M10 12h10" />
+      <path d="m7 9-3 3 3 3" />
+    </Icon>
+  );
+}

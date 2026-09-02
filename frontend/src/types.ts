@@ -51,6 +51,10 @@ export interface TableRow {
   id: string;
   label: string;
   cells: string[];
+  /** Visual nesting level for the omschrijving (0 = none). Stacks. */
+  indent?: number;
+  /** Optional row note shown via the eye badge. */
+  info?: string;
 }
 
 export interface FinancialTableConfig {

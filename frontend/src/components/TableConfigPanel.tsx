@@ -258,6 +258,37 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
           server bewaard en gelden voor iedereen. Opslaan schrijft alle vier de
           tabelconfiguraties als één versie.
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          In bedragkolommen kun je verwijzingen zetten:{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            mar:29/58
+          </code>{" "}
+          of{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            @29/58
+          </code>{" "}
+          (PDF/MAR, expressies met{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            +
+          </code>
+          /
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            -
+          </code>{" "}
+          mogen), en{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            ratio:current_ratio
+          </code>{" "}
+          (ratio-id). Het jaar volgt de kolom (boekjaar/vorig), of forceer met{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            mar.current:
+          </code>{" "}
+          /
+          <code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+            mar.previous:
+          </code>
+          .
+        </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="block text-xs font-medium text-slate-600">
             Admin-wachtwoord

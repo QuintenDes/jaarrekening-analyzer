@@ -31,7 +31,8 @@ EXPECTED: dict[str, tuple[str, tuple[str, ...]]] = {
 
 TABLE_KEYS = frozenset({"id", "type", "model_scope", "columns", "rows"})
 COLUMN_KEYS = frozenset({"id", "label"})
-ROW_KEYS = frozenset({"id", "label", "cells"})
+ROW_KEYS = frozenset({"id", "label", "cells", "indent", "info"})
+MAX_ROW_INDENT = 6
 
 
 def _as_str(value: object, *, field: str) -> str:
@@ -71,6 +72,36 @@ def _validate_column(raw: object, *, table_id: str) -> dict[str, str]:
     }
 
 
+def _validate_indent(value: object, *, table_id: str, row_id: str) -> int:
+    if value is None or value == "":
+        return 0
+    if isinstance(value, bool) or isinstance(value, (dict, list)):
+        raise ValueError(
+            f"Tabel '{table_id}', rij '{row_id}': indent moet een geheel getal zijn."
+        )
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        if not text.isdigit():
+            raise ValueError(
+                f"Tabel '{table_id}', rij '{row_id}': indent moet een geheel getal zijn."
+            )
+        value = int(text)
+    if not isinstance(value, int):
+        raise ValueError(
+            f"Tabel '{table_id}', rij '{row_id}': indent moet een geheel getal zijn."
+        )
+    if value < 0 or value > MAX_ROW_INDENT:
+        raise ValueError(
+            f"Tabel '{table_id}', rij '{row_id}': indent moet tussen 0 en "
+            f"{MAX_ROW_INDENT} liggen."
+        )
+    return value
+
+
 def _validate_row(
     raw: object, *, table_id: str, column_count: int
 ) -> dict[str, Any]:
@@ -91,6 +122,8 @@ def _validate_row(
         "id": row_id,
         "label": _as_str(raw.get("label"), field="label"),
         "cells": cells,
+        "indent": _validate_indent(raw.get("indent"), table_id=table_id, row_id=row_id),
+        "info": _as_str(raw.get("info"), field="info"),
     }
 
 

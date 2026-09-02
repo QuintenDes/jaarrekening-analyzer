@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { getTablesConfig } from "../api/client";
-import type { FinancialTableConfig, TabellenViewId } from "../types";
+import type {
+  AmountFormat,
+  AnalysisResult,
+  FinancialTableConfig,
+  TabellenViewId,
+} from "../types";
 import {
   MODEL_LABELS,
   tableIdForView,
@@ -10,7 +15,15 @@ import {
 import { EditableFinancialTable } from "./EditableFinancialTable";
 import { SubTabs } from "./SubTabs";
 
-export function TableViewPanel() {
+interface TableViewPanelProps {
+  analysisResult?: AnalysisResult | null;
+  amountFormat?: AmountFormat;
+}
+
+export function TableViewPanel({
+  analysisResult = null,
+  amountFormat = "full",
+}: TableViewPanelProps) {
   const [tables, setTables] = useState<FinancialTableConfig[]>([]);
   const [view, setView] = useState<TabellenViewId>("cashflow");
   const [resultGroup, setResultGroup] = useState<ResultGroup>("full");
@@ -49,6 +62,9 @@ export function TableViewPanel() {
         <h3 className="font-semibold text-slate-800">Tabellen</h3>
         <p className="mt-1 text-sm text-slate-600">
           Overzicht van de geconfigureerde financiële tabellen.
+          {analysisResult
+            ? " Celverwijzingen (mar: / ratio:) worden uit de huidige analyse ingevuld."
+            : " Analyseer een PDF om mar:- en ratio:-cellen in te vullen."}
         </p>
       </div>
 
@@ -110,7 +126,12 @@ export function TableViewPanel() {
             </div>
           </div>
 
-          <EditableFinancialTable table={activeTable} editable={false} />
+          <EditableFinancialTable
+            table={activeTable}
+            editable={false}
+            analysisResult={analysisResult}
+            amountFormat={amountFormat}
+          />
         </div>
       )}
 

@@ -72,67 +72,67 @@ tables:
     rows:
       - id: bs-fixed
         label: Vaste activa
-        cells: ["20/28", "", ""]
+        cells: ["20/28", "mar:20/28", "mar:20/28"]
       - id: bs-formation
         label: Oprichtingskosten
-        cells: ["20", "", ""]
+        cells: ["20", "mar:20", "mar:20"]
       - id: bs-intangible
         label: Immateriële vaste activa
-        cells: ["21", "", ""]
+        cells: ["21", "mar:21", "mar:21"]
       - id: bs-tangible
         label: Materiële vaste activa
-        cells: ["22/27", "", ""]
+        cells: ["22/27", "mar:22/27", "mar:22/27"]
       - id: bs-financial-fixed
         label: Financiële vaste activa
-        cells: ["28", "", ""]
+        cells: ["28", "mar:28", "mar:28"]
       - id: bs-current
         label: Vlottende activa
-        cells: ["29/58", "", ""]
+        cells: ["29/58", "mar:29/58", "mar:29/58"]
       - id: bs-inventories
         label: Voorraden en bestellingen in uitvoering
-        cells: ["3", "", ""]
+        cells: ["3", "mar:3", "mar:3"]
       - id: bs-receivables
         label: Vorderingen op ten hoogste één jaar
-        cells: ["40/41", "", ""]
+        cells: ["40/41", "mar:40/41", "mar:40/41"]
       - id: bs-investments
         label: Geldbeleggingen
-        cells: ["50/53", "", ""]
+        cells: ["50/53", "mar:50/53", "mar:50/53"]
       - id: bs-cash
         label: Liquide middelen
-        cells: ["54/58", "", ""]
+        cells: ["54/58", "mar:54/58", "mar:54/58"]
       - id: bs-accruals-assets
         label: Overlopende rekeningen
-        cells: ["490/1", "", ""]
+        cells: ["490/1", "mar:490/1", "mar:490/1"]
       - id: bs-total-assets
         label: Totaal der activa
-        cells: ["20/58", "", ""]
+        cells: ["20/58", "mar:20/58", "mar:20/58"]
       - id: bs-equity
         label: Eigen vermogen
-        cells: ["10/15", "", ""]
+        cells: ["10/15", "mar:10/15", "mar:10/15"]
       - id: bs-capital
         label: Kapitaal
-        cells: ["10", "", ""]
+        cells: ["10", "mar:10", "mar:10"]
       - id: bs-reserves
         label: Reserves
-        cells: ["13", "", ""]
+        cells: ["13", "mar:13", "mar:13"]
       - id: bs-retained
         label: Overgedragen winst (verlies)
-        cells: ["14", "", ""]
+        cells: ["14", "mar:14", "mar:14"]
       - id: bs-provisions
         label: Voorzieningen en uitgestelde belastingen
-        cells: ["16", "", ""]
+        cells: ["16", "mar:16", "mar:16"]
       - id: bs-liabilities
         label: Schulden
-        cells: ["17/49", "", ""]
+        cells: ["17/49", "mar:17/49", "mar:17/49"]
       - id: bs-lt-debt
         label: Schulden op meer dan één jaar
-        cells: ["17", "", ""]
+        cells: ["17", "mar:17", "mar:17"]
       - id: bs-st-debt
         label: Schulden op ten hoogste één jaar
-        cells: ["42/48", "", ""]
+        cells: ["42/48", "mar:42/48", "mar:42/48"]
       - id: bs-total-liabilities
         label: Totaal der passiva
-        cells: ["10/49", "", ""]
+        cells: ["10/49", "mar:10/49", "mar:10/49"]
 
   - id: herwerkte_resultatenrekening_full
     type: herwerkte_resultatenrekening
@@ -148,31 +148,31 @@ tables:
     rows:
       - id: isf-operating-income
         label: Bedrijfsopbrengsten
-        cells: ["70/76A", "", ""]
+        cells: ["70/76A", "mar:70/76A", "mar:70/76A"]
       - id: isf-operating-charges
         label: Bedrijfskosten
-        cells: ["60/66A", "", ""]
+        cells: ["60/66A", "mar:60/66A", "mar:60/66A"]
       - id: isf-operating-result
         label: Bedrijfsresultaat
-        cells: ["9901", "", ""]
+        cells: ["9901", "mar:9901", "mar:9901"]
       - id: isf-financial-income
         label: Financiële opbrengsten
-        cells: ["75/76B", "", ""]
+        cells: ["75/76B", "mar:75/76B", "mar:75/76B"]
       - id: isf-financial-charges
         label: Financiële kosten
-        cells: ["65/66B", "", ""]
+        cells: ["65/66B", "mar:65/66B", "mar:65/66B"]
       - id: isf-before-tax
         label: Winst (verlies) van het boekjaar vóór belasting
-        cells: ["9903", "", ""]
+        cells: ["9903", "mar:9903", "mar:9903"]
       - id: isf-taxes
         label: Belastingen op het resultaat
-        cells: ["67/77", "", ""]
+        cells: ["67/77", "mar:67/77", "mar:67/77"]
       - id: isf-profit
         label: Winst (verlies) van het boekjaar
-        cells: ["9904", "", ""]
+        cells: ["9904", "mar:9904", "mar:9904"]
       - id: isf-appropriable
         label: Te bestemmen winst (verlies) van het boekjaar
-        cells: ["9905", "", ""]
+        cells: ["9905", "mar:9905", "mar:9905"]
 
   - id: herwerkte_resultatenrekening_verkort_micro
     type: herwerkte_resultatenrekening
@@ -189,28 +189,28 @@ tables:
     rows:
       - id: isv-turnover
         label: Omzet
-        cells: ["70", "", ""]
+        cells: ["70", "mar:70", "mar:70"]
       - id: isv-gross-margin
         label: Brutomarge
-        cells: ["9900", "", ""]
+        cells: ["9900", "mar:9900", "mar:9900"]
       - id: isv-operating-result
         label: Bedrijfsresultaat
-        cells: ["9901", "", ""]
+        cells: ["9901", "mar:9901", "mar:9901"]
       - id: isv-financial-income
         label: Financiële opbrengsten
-        cells: ["75", "", ""]
+        cells: ["75", "mar:75", "mar:75"]
       - id: isv-financial-charges
         label: Financiële kosten
-        cells: ["65", "", ""]
+        cells: ["65", "mar:65", "mar:65"]
       - id: isv-before-tax
         label: Winst (verlies) van het boekjaar vóór belasting
-        cells: ["9903", "", ""]
+        cells: ["9903", "mar:9903", "mar:9903"]
       - id: isv-taxes
         label: Belastingen op het resultaat
-        cells: ["67", "", ""]
+        cells: ["67", "mar:67", "mar:67"]
       - id: isv-profit
         label: Winst (verlies) van het boekjaar
-        cells: ["9904", "", ""]
+        cells: ["9904", "mar:9904", "mar:9904"]
       - id: isv-appropriable
         label: Te bestemmen winst (verlies) van het boekjaar
-        cells: ["9905", "", ""]
+        cells: ["9905", "mar:9905", "mar:9905"]

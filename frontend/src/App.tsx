@@ -247,7 +247,12 @@ function App() {
           />
         )}
 
-        {activeTab === "tabellen" && <TableViewPanel />}
+        {activeTab === "tabellen" && (
+          <TableViewPanel
+            analysisResult={session.result}
+            amountFormat={amountFormat}
+          />
+        )}
 
         {activeTab === "tabellen_config" && (
           <TableConfigPanel onDirtyChange={setTabellenDirty} />

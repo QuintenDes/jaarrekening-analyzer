@@ -69,6 +69,8 @@ class TableRow(BaseModel):
     id: str
     label: str = ""
     cells: list[str] = Field(default_factory=list)
+    indent: int = 0
+    info: str = ""
 
 
 class FinancialTableConfig(BaseModel):

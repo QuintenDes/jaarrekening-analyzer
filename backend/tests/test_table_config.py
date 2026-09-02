@@ -355,6 +355,23 @@ def test_validate_rejects_unknown_table_id() -> None:
         validate_tables_config(bundled["tables"])
 
 
+def test_validate_accepts_row_indent_and_info() -> None:
+    bundled = yaml.safe_load(BUNDLED_TABLES_PATH.read_text(encoding="utf-8"))
+    bundled["tables"][0]["rows"][0]["indent"] = 2
+    bundled["tables"][0]["rows"][0]["info"] = "Toelichting"
+    validated = validate_tables_config(bundled["tables"])
+    row = validated[0]["rows"][0]
+    assert row["indent"] == 2
+    assert row["info"] == "Toelichting"
+
+
+def test_validate_rejects_invalid_indent() -> None:
+    bundled = yaml.safe_load(BUNDLED_TABLES_PATH.read_text(encoding="utf-8"))
+    bundled["tables"][0]["rows"][0]["indent"] = 99
+    with pytest.raises(ValueError, match="indent moet tussen"):
+        validate_tables_config(bundled["tables"])
+
+
 def test_validate_rejects_empty_columns() -> None:
     bundled = yaml.safe_load(BUNDLED_TABLES_PATH.read_text(encoding="utf-8"))
     bundled["tables"][0]["columns"] = []
