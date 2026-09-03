@@ -30,7 +30,6 @@ import {
 } from "./EditableFinancialTable";
 import { PlusIcon, ResetIcon, SaveIcon } from "./icons";
 import { ConfigPanelHeader } from "./ConfigPanelHeader";
-import { ModelMultiSelect } from "./ModelMultiSelect";
 import { SubTabs } from "./SubTabs";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
@@ -117,7 +116,8 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [ratioSpecs, setRatioSpecs] = useState<RatioSpec[]>([]);
-  const [editModels, setEditModels] = useState<ModelKind[]>(["full"]);
+  // null = "all models" mode (edits shared row.cells); a specific kind = override mode
+  const [editModel, setEditModel] = useState<ModelKind | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const dirty = useMemo(
@@ -129,8 +129,8 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const activeTable = draft.find((table) => table.id === activeTableId) ?? null;
 
   useEffect(() => {
-    if (!activeTable) return;
-    setEditModels([...activeTable.model_scope]);
+    // Reset to all-mode when switching tables
+    setEditModel(null);
   }, [activeTable?.id]);
 
   useEffect(() => {
@@ -428,14 +428,56 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
           {activeTable && (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <ModelMultiSelect
-                models={activeTable.model_scope}
-                selected={editModels}
-                onChange={setEditModels}
-                hasOverrides={(kind) =>
-                  tableHasModelOverrides(activeTable.rows, kind)
-                }
-              />
+              {activeTable.model_scope.length > 1 && (
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Bewerk
+                  </span>
+                  <div role="group" aria-label="Model bewerken" className="inline-flex flex-wrap gap-1">
+                    {/* "Alle" = null / all-mode */}
+                    <button
+                      type="button"
+                      aria-pressed={editModel === null}
+                      onClick={() => setEditModel(null)}
+                      className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium ring-1 ${
+                        editModel === null
+                          ? "bg-slate-800 text-white ring-slate-800"
+                          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      Alle
+                    </button>
+                    {activeTable.model_scope.map((kind) => {
+                      const hasOverrides = tableHasModelOverrides(activeTable.rows, kind);
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          aria-pressed={editModel === kind}
+                          onClick={() =>
+                            setEditModel((prev) => (prev === kind ? null : kind))
+                          }
+                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-medium ring-1 ${
+                            editModel === kind
+                              ? "bg-slate-800 text-white ring-slate-800"
+                              : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          {MODEL_LABELS[kind]}
+                          {hasOverrides && (
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                editModel === kind ? "bg-emerald-300" : "bg-emerald-500"
+                              }`}
+                              title="Heeft model-specifieke waarden"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex shrink-0 gap-1.5">
                 <button
                   type="button"
@@ -467,7 +509,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             disabled={saving || loading}
             editable={true}
             ratioSpecs={ratioSpecs}
-            activeModels={editModels}
+            activeModel={editModel}
           />
         )}
 

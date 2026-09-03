@@ -14,7 +14,6 @@ import { getRatiosConfigMeta } from "../api/client";
 import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
 import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
 import { FormulaTokens } from "./FormulaTokens";
-import { ConfigPanelHeader } from "./ConfigPanelHeader";
 import { SubTabs } from "./SubTabs";
 
 interface RatioDashboardProps {
@@ -242,7 +241,6 @@ export function RatioDashboard({
   const [keyIds, setKeyIds] = useState<Record<string, string[]>>(() =>
     cloneKeyIds(undefined),
   );
-  const [helpOpen, setHelpOpen] = useState(false);
   const kpis = selectKpis(result);
 
   useEffect(() => {
@@ -365,23 +363,6 @@ export function RatioDashboard({
 
   return (
     <div className="min-w-0 space-y-3">
-      <ConfigPanelHeader
-        title="Ratio's"
-        summary="Berekende ratio's uit de huidige analyse."
-        helpOpen={helpOpen}
-        onHelpToggle={() => setHelpOpen((open) => !open)}
-        showInlineAdmin={false}
-        helpContent={
-          <ul className="space-y-1 text-xs leading-relaxed">
-            <li>
-              <span className="font-semibold">i</span> naast de naam toont de
-              formule.
-            </li>
-            <li>Kies een categorie om alle ratio's te bekijken.</li>
-          </ul>
-        }
-      />
-
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-3">
           <SubTabs items={views} value={activeCategory} onChange={setView} />

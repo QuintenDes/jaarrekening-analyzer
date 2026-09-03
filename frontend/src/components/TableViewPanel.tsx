@@ -15,8 +15,6 @@ import {
   type ResultGroup,
 } from "../tables/views";
 import { EditableFinancialTable } from "./EditableFinancialTable";
-import { ConfigPanelHeader } from "./ConfigPanelHeader";
-import { ModelMultiSelect } from "./ModelMultiSelect";
 import { SubTabs } from "./SubTabs";
 
 interface TableViewPanelProps {
@@ -33,8 +31,7 @@ export function TableViewPanel({
   const [resultGroup, setResultGroup] = useState<ResultGroup>("full");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewModels, setViewModels] = useState<ModelKind[]>(["full"]);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [viewModel, setViewModel] = useState<ModelKind>("full");
 
   const activeTableId = tableIdForView(view, resultGroup);
   const activeTable = tables.find((table) => table.id === activeTableId) ?? null;
@@ -43,10 +40,12 @@ export function TableViewPanel({
     if (!activeTable) return;
     const inferred = inferModelFromSchema(analysisResult?.schema_format);
     if (inferred && activeTable.model_scope.includes(inferred)) {
-      setViewModels([inferred]);
+      setViewModel(inferred);
       return;
     }
-    setViewModels([...activeTable.model_scope]);
+    if (!activeTable.model_scope.includes(viewModel)) {
+      setViewModel(activeTable.model_scope[0] ?? "full");
+    }
   }, [activeTable?.id, analysisResult?.schema_format]);
 
   useEffect(() => {
@@ -74,31 +73,6 @@ export function TableViewPanel({
 
   return (
     <div className="min-w-0 space-y-3">
-      <ConfigPanelHeader
-        title="Tabellen"
-        summary="Overzicht van de geconfigureerde financiële tabellen."
-        helpOpen={helpOpen}
-        onHelpToggle={() => setHelpOpen((open) => !open)}
-        showInlineAdmin={false}
-        helpContent={
-          <ul className="space-y-1 text-xs leading-relaxed">
-            <li>
-              {analysisResult
-                ? "mar:- en ratio:-cellen worden uit de huidige analyse ingevuld."
-                : "Analyseer een PDF om mar:- en ratio:-cellen in te vullen."}
-            </li>
-            <li>
-              Selecteer één of meerdere modellen om waarden naast elkaar te
-              vergelijken.
-            </li>
-            <li>
-              <span className="font-semibold">i</span> rechts van de rijnaam —
-              toelichting.
-            </li>
-          </ul>
-        }
-      />
-
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -140,14 +114,27 @@ export function TableViewPanel({
             </div>
           )}
 
-          {activeTable && (
-            <ModelMultiSelect
-              models={activeTable.model_scope}
-              selected={viewModels}
-              onChange={setViewModels}
-              label="Toon"
-              ariaLabel="Model weergave"
-            />
+          {activeTable && activeTable.model_scope.length > 1 && (
+            <div
+              role="group"
+              aria-label="Model weergave"
+              className="inline-flex flex-wrap gap-1"
+            >
+              {activeTable.model_scope.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setViewModel(kind)}
+                  className={`rounded-md px-2.5 py-1 text-sm font-medium ring-1 ${
+                    viewModel === kind
+                      ? "bg-slate-800 text-white ring-slate-800"
+                      : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {MODEL_LABELS[kind]}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -157,7 +144,7 @@ export function TableViewPanel({
             editable={false}
             analysisResult={analysisResult}
             amountFormat={amountFormat}
-            activeModels={viewModels}
+            activeModel={viewModel}
           />
         )}
 

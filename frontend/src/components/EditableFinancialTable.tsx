@@ -7,6 +7,7 @@ import {
 import {
   cellsForModel,
   updateCellsForModel,
+  rowHasModelOverride,
 } from "../tables/rowCells";
 import type {
   AmountFormat,
@@ -17,7 +18,6 @@ import type {
   TableColumn,
   TableRow,
 } from "../types";
-import { MODEL_LABELS } from "../tables/views";
 import {
   DeleteIcon,
   IndentDecreaseIcon,
@@ -33,8 +33,12 @@ interface EditableFinancialTableProps {
   analysisResult?: AnalysisResult | null;
   amountFormat?: AmountFormat;
   ratioSpecs?: RatioSpec[];
-  /** Which model variant(s) to show/edit (Full / Verkort / Micro). */
-  activeModels?: ModelKind[];
+  /**
+   * Which single model to show/edit.
+   * null / undefined = "all models" mode: reads/writes shared cells (row.cells).
+   * A specific ModelKind = reads/writes that model's override (cells_by_model).
+   */
+  activeModel?: ModelKind | null;
 }
 
 const MAX_INDENT = 6;
@@ -106,6 +110,21 @@ function cellPlaceholder(column: TableColumn, index: number): string {
   return "";
 }
 
+/** True when any model in scope has an override that differs from the shared value. */
+function cellHasDivergentOverrides(
+  row: TableRow,
+  cellIndex: number,
+  modelsInScope: ModelKind[],
+): boolean {
+  if (modelsInScope.length <= 1) return false;
+  const shared = row.cells[cellIndex] ?? "";
+  return modelsInScope.some((kind) => {
+    const override = row.cells_by_model?.[kind];
+    if (!override) return false;
+    return (override[cellIndex] ?? "") !== shared;
+  });
+}
+
 export function addTableRow(table: FinancialTableConfig): FinancialTableConfig {
   return {
     ...table,
@@ -149,21 +168,21 @@ export function EditableFinancialTable({
   analysisResult = null,
   amountFormat = "full",
   ratioSpecs = [],
-  activeModels,
+  activeModel,
 }: EditableFinancialTableProps) {
-  const models =
-    activeModels && activeModels.length > 0
-      ? activeModels.filter((kind) => table.model_scope.includes(kind))
-      : [table.model_scope[0] ?? "full"];
+  // null/undefined = "all" mode, reads/writes shared row.cells
+  // a specific model = override mode for that model
+  const allMode = activeModel == null;
+  const displayModel = allMode
+    ? (table.model_scope[0] ?? "full")
+    : activeModel;
   const columnCount = table.columns.length;
-  const multiModel = models.length > 1;
 
-  function rowForModel(row: TableRow, model: ModelKind): TableRow {
-    return {
-      ...row,
-      cells: cellsForModel(row, model, columnCount),
-    };
+  function displayRow(row: TableRow): TableRow {
+    if (allMode) return row; // show shared cells directly
+    return { ...row, cells: cellsForModel(row, displayModel, columnCount) };
   }
+
   function patch(next: FinancialTableConfig) {
     onChange?.(next);
   }
@@ -177,10 +196,7 @@ export function EditableFinancialTable({
     });
   }
 
-  function updateRow(
-    index: number,
-    updater: (row: TableRow) => TableRow,
-  ) {
+  function updateRow(index: number, updater: (row: TableRow) => TableRow) {
     patch({
       ...table,
       rows: table.rows.map((row, i) => (i === index ? updater(row) : row)),
@@ -202,17 +218,19 @@ export function EditableFinancialTable({
     updateRow(index, (row) => ({ ...row, info }));
   }
 
-  function updateCell(
-    rowIndex: number,
-    cellIndex: number,
-    value: string,
-    model: ModelKind,
-  ) {
+  function updateCell(rowIndex: number, cellIndex: number, value: string) {
     updateRow(rowIndex, (row) => {
-      const current = cellsForModel(row, model, columnCount);
+      if (allMode) {
+        // Write to shared cells; clear any override that now matches
+        const cells = [...row.cells];
+        cells[cellIndex] = value;
+        return { ...row, cells };
+      }
+      // Write to the specific model override
+      const current = cellsForModel(row, displayModel, columnCount);
       const cells = [...current];
       cells[cellIndex] = value;
-      return updateCellsForModel(row, model, cells, table.model_scope);
+      return updateCellsForModel(row, displayModel, cells, table.model_scope);
     });
   }
 
@@ -308,6 +326,7 @@ export function EditableFinancialTable({
               const indent = rowIndent(row);
               const info = rowInfo(row);
               const indentClass = INDENT_CLASS[indent] ?? INDENT_CLASS[MAX_INDENT];
+              const dr = displayRow(row);
 
               return (
                 <tr key={row.id} className="group">
@@ -366,89 +385,87 @@ export function EditableFinancialTable({
                       />
                     </div>
                   </th>
-                  {table.columns.map((column, cellIndex) => (
-                    <td
-                      key={column.id}
-                      className={
-                        editable
-                          ? "border-b border-l border-slate-100 bg-white px-1 py-0.5 align-top group-hover:bg-slate-50"
-                          : `border-b border-l border-slate-100 bg-white align-top ${cellTextClass(column, cellIndex)}`
-                      }
-                    >
-                      <div
+                  {table.columns.map((column, cellIndex) => {
+                    const raw = dr.cells[cellIndex] ?? "";
+                    const refKind = cellRefKind(raw);
+                    const resolved =
+                      !editable && refKind
+                        ? resolveCellValue(raw, {
+                            row: dr,
+                            columns: table.columns,
+                            cellIndex,
+                            column,
+                            result: analysisResult,
+                            amountFormat,
+                          })
+                        : null;
+
+                    // In all-mode, show indicator when per-model overrides diverge
+                    const diverges =
+                      editable &&
+                      allMode &&
+                      table.model_scope.length > 1 &&
+                      cellHasDivergentOverrides(row, cellIndex, table.model_scope);
+
+                    // In single-model mode, show indicator if this model has an override
+                    const hasOverride =
+                      editable &&
+                      !allMode &&
+                      rowHasModelOverride(row, displayModel);
+
+                    return (
+                      <td
+                        key={column.id}
                         className={
-                          multiModel
-                            ? "flex flex-col gap-1.5 py-0.5"
-                            : undefined
+                          editable
+                            ? "border-b border-l border-slate-100 bg-white px-1 py-0.5 group-hover:bg-slate-50"
+                            : `border-b border-l border-slate-100 bg-white ${cellTextClass(column, cellIndex)}`
                         }
                       >
-                        {models.map((model) => {
-                          const displayRow = rowForModel(row, model);
-                          const raw = displayRow.cells[cellIndex] ?? "";
-                          const refKind = cellRefKind(raw);
-                          const resolved =
-                            !editable && refKind
-                              ? resolveCellValue(raw, {
-                                  row: displayRow,
-                                  columns: table.columns,
-                                  cellIndex,
-                                  column,
-                                  result: analysisResult,
-                                  amountFormat,
-                                })
-                              : null;
-                          const inputClass = cellInputClass(column, cellIndex);
-                          const label = `${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`;
-
-                          return (
-                            <div key={model}>
-                              {multiModel && (
-                                <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                  {MODEL_LABELS[model]}
-                                </span>
-                              )}
-                              {editable ? (
-                                <CellRefInput
-                                  value={raw}
-                                  disabled={disabled}
-                                  column={column}
-                                  cellIndex={cellIndex}
-                                  columns={table.columns}
-                                  ratioSpecs={ratioSpecs}
-                                  placeholder={cellPlaceholder(column, cellIndex)}
-                                  ariaLabel={
-                                    multiModel
-                                      ? `${label} (${MODEL_LABELS[model]})`
-                                      : label
-                                  }
-                                  className={inputClass}
-                                  onChange={(value) =>
-                                    updateCell(
-                                      rowIndex,
-                                      cellIndex,
-                                      value,
-                                      model,
-                                    )
-                                  }
-                                />
-                              ) : resolved ? (
-                                <span
-                                  title={resolved.title}
-                                  className={
-                                    resolved.missing ? "text-slate-400" : undefined
-                                  }
-                                >
-                                  {resolved.text}
-                                </span>
-                              ) : (
-                                raw
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                  ))}
+                        {editable ? (
+                          <div className="relative">
+                            <CellRefInput
+                              value={raw}
+                              disabled={disabled}
+                              column={column}
+                              cellIndex={cellIndex}
+                              columns={table.columns}
+                              ratioSpecs={ratioSpecs}
+                              placeholder={cellPlaceholder(column, cellIndex)}
+                              ariaLabel={`${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`}
+                              className={cellInputClass(column, cellIndex)}
+                              onChange={(value) =>
+                                updateCell(rowIndex, cellIndex, value)
+                              }
+                            />
+                            {diverges && (
+                              <span
+                                title="Verschilt per model"
+                                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-400"
+                              />
+                            )}
+                            {hasOverride && (
+                              <span
+                                title="Model-specifieke waarde"
+                                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500"
+                              />
+                            )}
+                          </div>
+                        ) : resolved ? (
+                          <span
+                            title={resolved.title}
+                            className={
+                              resolved.missing ? "text-slate-400" : undefined
+                            }
+                          >
+                            {resolved.text}
+                          </span>
+                        ) : (
+                          raw
+                        )}
+                      </td>
+                    );
+                  })}
                   {editable && (
                     <td className="border-b border-l border-slate-100 bg-white px-1 py-0.5 text-center group-hover:bg-slate-50">
                       <button
