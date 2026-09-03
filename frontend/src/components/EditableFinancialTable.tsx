@@ -17,6 +17,7 @@ import type {
   TableColumn,
   TableRow,
 } from "../types";
+import { MODEL_LABELS } from "../tables/views";
 import {
   DeleteIcon,
   IndentDecreaseIcon,
@@ -32,8 +33,8 @@ interface EditableFinancialTableProps {
   analysisResult?: AnalysisResult | null;
   amountFormat?: AmountFormat;
   ratioSpecs?: RatioSpec[];
-  /** Which model variant to show/edit (Full / Verkort / Micro). */
-  activeModel?: ModelKind;
+  /** Which model variant(s) to show/edit (Full / Verkort / Micro). */
+  activeModels?: ModelKind[];
 }
 
 const MAX_INDENT = 6;
@@ -148,12 +149,16 @@ export function EditableFinancialTable({
   analysisResult = null,
   amountFormat = "full",
   ratioSpecs = [],
-  activeModel,
+  activeModels,
 }: EditableFinancialTableProps) {
-  const model = activeModel ?? table.model_scope[0] ?? "full";
+  const models =
+    activeModels && activeModels.length > 0
+      ? activeModels.filter((kind) => table.model_scope.includes(kind))
+      : [table.model_scope[0] ?? "full"];
   const columnCount = table.columns.length;
+  const multiModel = models.length > 1;
 
-  function rowForModel(row: TableRow): TableRow {
+  function rowForModel(row: TableRow, model: ModelKind): TableRow {
     return {
       ...row,
       cells: cellsForModel(row, model, columnCount),
@@ -197,7 +202,12 @@ export function EditableFinancialTable({
     updateRow(index, (row) => ({ ...row, info }));
   }
 
-  function updateCell(rowIndex: number, cellIndex: number, value: string) {
+  function updateCell(
+    rowIndex: number,
+    cellIndex: number,
+    value: string,
+    model: ModelKind,
+  ) {
     updateRow(rowIndex, (row) => {
       const current = cellsForModel(row, model, columnCount);
       const cells = [...current];
@@ -334,13 +344,6 @@ export function EditableFinancialTable({
                           </button>
                         </div>
                       )}
-                      <RowInfoBadge
-                        info={info}
-                        editable={editable}
-                        disabled={disabled}
-                        rowLabel={row.label || `rij ${rowIndex + 1}`}
-                        onChange={(value) => updateRowInfo(rowIndex, value)}
-                      />
                       {editable ? (
                         <input
                           value={row.label}
@@ -354,63 +357,98 @@ export function EditableFinancialTable({
                       ) : (
                         <span className="min-w-0 flex-1">{row.label}</span>
                       )}
+                      <RowInfoBadge
+                        info={info}
+                        editable={editable}
+                        disabled={disabled}
+                        rowLabel={row.label || `rij ${rowIndex + 1}`}
+                        onChange={(value) => updateRowInfo(rowIndex, value)}
+                      />
                     </div>
                   </th>
-                  {table.columns.map((column, cellIndex) => {
-                    const displayRow = rowForModel(row);
-                    const raw = displayRow.cells[cellIndex] ?? "";
-                    const refKind = cellRefKind(raw);
-                    const resolved =
-                      !editable && refKind
-                        ? resolveCellValue(raw, {
-                            row: displayRow,
-                            columns: table.columns,
-                            cellIndex,
-                            column,
-                            result: analysisResult,
-                            amountFormat,
-                          })
-                        : null;
-
-                    return (
-                      <td
-                        key={column.id}
+                  {table.columns.map((column, cellIndex) => (
+                    <td
+                      key={column.id}
+                      className={
+                        editable
+                          ? "border-b border-l border-slate-100 bg-white px-1 py-0.5 align-top group-hover:bg-slate-50"
+                          : `border-b border-l border-slate-100 bg-white align-top ${cellTextClass(column, cellIndex)}`
+                      }
+                    >
+                      <div
                         className={
-                          editable
-                            ? "border-b border-l border-slate-100 bg-white px-1 py-0.5 group-hover:bg-slate-50"
-                            : `border-b border-l border-slate-100 bg-white ${cellTextClass(column, cellIndex)}`
+                          multiModel
+                            ? "flex flex-col gap-1.5 py-0.5"
+                            : undefined
                         }
                       >
-                        {editable ? (
-                          <CellRefInput
-                            value={raw}
-                            disabled={disabled}
-                            column={column}
-                            cellIndex={cellIndex}
-                            columns={table.columns}
-                            ratioSpecs={ratioSpecs}
-                            placeholder={cellPlaceholder(column, cellIndex)}
-                            ariaLabel={`${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`}
-                            className={cellInputClass(column, cellIndex)}
-                            onChange={(value) =>
-                              updateCell(rowIndex, cellIndex, value)
-                            }
-                          />
-                        ) : resolved ? (
-                          <span
-                            title={resolved.title}
-                            className={
-                              resolved.missing ? "text-slate-400" : undefined
-                            }
-                          >
-                            {resolved.text}
-                          </span>
-                        ) : (
-                          raw
-                        )}
-                      </td>
-                    );
-                  })}
+                        {models.map((model) => {
+                          const displayRow = rowForModel(row, model);
+                          const raw = displayRow.cells[cellIndex] ?? "";
+                          const refKind = cellRefKind(raw);
+                          const resolved =
+                            !editable && refKind
+                              ? resolveCellValue(raw, {
+                                  row: displayRow,
+                                  columns: table.columns,
+                                  cellIndex,
+                                  column,
+                                  result: analysisResult,
+                                  amountFormat,
+                                })
+                              : null;
+                          const inputClass = cellInputClass(column, cellIndex);
+                          const label = `${row.label || `Rij ${rowIndex + 1}`}, ${column.label}`;
+
+                          return (
+                            <div key={model}>
+                              {multiModel && (
+                                <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                                  {MODEL_LABELS[model]}
+                                </span>
+                              )}
+                              {editable ? (
+                                <CellRefInput
+                                  value={raw}
+                                  disabled={disabled}
+                                  column={column}
+                                  cellIndex={cellIndex}
+                                  columns={table.columns}
+                                  ratioSpecs={ratioSpecs}
+                                  placeholder={cellPlaceholder(column, cellIndex)}
+                                  ariaLabel={
+                                    multiModel
+                                      ? `${label} (${MODEL_LABELS[model]})`
+                                      : label
+                                  }
+                                  className={inputClass}
+                                  onChange={(value) =>
+                                    updateCell(
+                                      rowIndex,
+                                      cellIndex,
+                                      value,
+                                      model,
+                                    )
+                                  }
+                                />
+                              ) : resolved ? (
+                                <span
+                                  title={resolved.title}
+                                  className={
+                                    resolved.missing ? "text-slate-400" : undefined
+                                  }
+                                >
+                                  {resolved.text}
+                                </span>
+                              ) : (
+                                raw
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  ))}
                   {editable && (
                     <td className="border-b border-l border-slate-100 bg-white px-1 py-0.5 text-center group-hover:bg-slate-50">
                       <button

@@ -14,6 +14,7 @@ import { getRatiosConfigMeta } from "../api/client";
 import type { AmountFormat, AnalysisResult, RatioResult } from "../types";
 import { formatAmount, formatRatio, formatSignedPercent } from "../utils/format";
 import { FormulaTokens } from "./FormulaTokens";
+import { ConfigPanelHeader } from "./ConfigPanelHeader";
 import { SubTabs } from "./SubTabs";
 
 interface RatioDashboardProps {
@@ -70,7 +71,7 @@ function RatioCard({ ratio, open, onToggle, onClose }: RatioCardProps) {
       ref={cardRef}
       className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center gap-2">
         <p className="text-sm text-slate-500">{ratio.name}</p>
         <button
           type="button"
@@ -170,6 +171,7 @@ function CategorySection({
   onToggle,
   onClose,
   separated,
+  showTitle = true,
 }: {
   category: string;
   items: RatioResult[];
@@ -178,23 +180,26 @@ function CategorySection({
   onToggle: (id: string) => void;
   onClose: () => void;
   separated?: boolean;
+  showTitle?: boolean;
 }) {
   return (
-    <section className={separated ? "mt-10" : "mt-8"}>
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <h2 className="text-[13px] font-bold uppercase tracking-[0.22em] text-slate-800">
-          {titleCase(category)}
-        </h2>
-        {onViewAll && (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="mb-0.5 text-sm font-medium text-emerald-700 hover:text-emerald-800"
-          >
-            Bekijk alle →
-          </button>
-        )}
-      </div>
+    <section className={separated ? "mt-10" : showTitle ? "mt-8" : undefined}>
+      {showTitle && (
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.22em] text-slate-800">
+            {titleCase(category)}
+          </h2>
+          {onViewAll && (
+            <button
+              type="button"
+              onClick={onViewAll}
+              className="mb-0.5 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+            >
+              Bekijk alle →
+            </button>
+          )}
+        </div>
+      )}
       {items.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
           Geen ratio’s in deze categorie.
@@ -237,6 +242,7 @@ export function RatioDashboard({
   const [keyIds, setKeyIds] = useState<Record<string, string[]>>(() =>
     cloneKeyIds(undefined),
   );
+  const [helpOpen, setHelpOpen] = useState(false);
   const kpis = selectKpis(result);
 
   useEffect(() => {
@@ -358,18 +364,40 @@ export function RatioDashboard({
   }
 
   return (
-    <div className="space-y-6">
-      <SubTabs items={views} value={activeCategory} onChange={setView} />
-
-      {statusBanners}
-
-      <CategorySection
-        category={activeCategory}
-        items={ratiosInCategory(ratios, activeCategory)}
-        openFormulaId={openFormulaId}
-        onToggle={toggleFormula}
-        onClose={() => setOpenFormulaId(null)}
+    <div className="min-w-0 space-y-3">
+      <ConfigPanelHeader
+        title="Ratio's"
+        summary="Berekende ratio's uit de huidige analyse."
+        helpOpen={helpOpen}
+        onHelpToggle={() => setHelpOpen((open) => !open)}
+        showInlineAdmin={false}
+        helpContent={
+          <ul className="space-y-1 text-xs leading-relaxed">
+            <li>
+              <span className="font-semibold">i</span> naast de naam toont de
+              formule.
+            </li>
+            <li>Kies een categorie om alle ratio's te bekijken.</li>
+          </ul>
+        }
       />
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-3">
+          <SubTabs items={views} value={activeCategory} onChange={setView} />
+        </div>
+        <div className="space-y-4 p-3">
+          {statusBanners}
+          <CategorySection
+            category={activeCategory}
+            items={ratiosInCategory(ratios, activeCategory)}
+            openFormulaId={openFormulaId}
+            onToggle={toggleFormula}
+            onClose={() => setOpenFormulaId(null)}
+            showTitle={false}
+          />
+        </div>
+      </div>
     </div>
   );
 }

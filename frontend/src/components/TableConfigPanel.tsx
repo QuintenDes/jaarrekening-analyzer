@@ -28,7 +28,9 @@ import {
   addTableRow,
   EditableFinancialTable,
 } from "./EditableFinancialTable";
-import { PlusIcon, ResetIcon, SaveIcon, ChevronIcon } from "./icons";
+import { PlusIcon, ResetIcon, SaveIcon } from "./icons";
+import { ConfigPanelHeader } from "./ConfigPanelHeader";
+import { ModelMultiSelect } from "./ModelMultiSelect";
 import { SubTabs } from "./SubTabs";
 
 const ADMIN_TOKEN_KEY = "ratioConfigAdminToken";
@@ -115,7 +117,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [ratioSpecs, setRatioSpecs] = useState<RatioSpec[]>([]);
-  const [editModel, setEditModel] = useState<ModelKind>("full");
+  const [editModels, setEditModels] = useState<ModelKind[]>(["full"]);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const dirty = useMemo(
@@ -128,10 +130,8 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
   useEffect(() => {
     if (!activeTable) return;
-    if (!activeTable.model_scope.includes(editModel)) {
-      setEditModel(activeTable.model_scope[0] ?? "full");
-    }
-  }, [activeTable, editModel]);
+    setEditModels([...activeTable.model_scope]);
+  }, [activeTable?.id]);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -279,41 +279,21 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3 p-3">
-          <div className="min-w-0 space-y-1">
-            <h3 className="font-semibold text-slate-800">Tabellen configuratie</h3>
-            <p className="text-sm text-slate-500">
-              Bewerk de herwerkte tabellen voor alle gebruikers.
-              {meta && (
-                <span className="text-slate-400">
-                  {" "}
-                  · v{meta.version} ·{" "}
-                  {meta.source === "saved" ? "opgeslagen" : "standaard"}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {dirty && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                Niet opgeslagen
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setHelpOpen((open) => !open)}
-              aria-expanded={helpOpen}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-            >
-              <ChevronIcon open={helpOpen} className="h-3.5 w-3.5" />
-              Uitleg
-            </button>
-          </div>
-        </div>
-
-        {helpOpen && (
-          <div className="space-y-3 border-t border-slate-100 px-3 pb-3 pt-2 text-sm text-slate-600">
+      <ConfigPanelHeader
+        title="Tabellen configuratie"
+        summary="Bewerk de herwerkte tabellen voor alle gebruikers."
+        meta={
+          meta
+            ? `· v${meta.version} · ${meta.source === "saved" ? "opgeslagen" : "standaard"}`
+            : undefined
+        }
+        dirty={dirty}
+        helpOpen={helpOpen}
+        onHelpToggle={() => setHelpOpen((open) => !open)}
+        adminToken={adminToken}
+        onAdminTokenChange={handleTokenChange}
+        helpContent={
+          <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="font-medium text-slate-700">Celverwijzingen</p>
@@ -341,18 +321,17 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
                 <p className="font-medium text-slate-700">Rij &amp; model</p>
                 <ul className="mt-1.5 space-y-1 text-xs leading-relaxed">
                   <li>
-                    <span className="font-semibold">i</span> — toelichting bij rij
+                    <span className="font-semibold">i</span> — toelichting rechts van de rijnaam
                   </li>
                   <li>← → — inspringing</li>
                   <li>
-                    Kies model (Volledig / Verkort / Micro) als formules per
-                    variant verschillen
+                    Selecteer één of meerdere modellen om tegelijk te bewerken
                   </li>
                   <li>Opslaan schrijft alle vier tabellen als één versie.</li>
                 </ul>
               </div>
             </div>
-            <div className="grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+            <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
               <label className="block text-xs font-medium text-slate-600">
                 Admin-wachtwoord
                 <input
@@ -367,50 +346,39 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
                 <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
               </div>
             </div>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving || loading || !dirty || !adminToken.trim()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <SaveIcon />
-            {saving ? "Opslaan…" : "Opslaan"}
-          </button>
-          <button
-            type="button"
-            onClick={handleDiscard}
-            disabled={saving || loading || !dirty}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Verwerpen
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleReset()}
-            disabled={saving || loading || !adminToken.trim()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-          >
-            <ResetIcon />
-            Reset
-          </button>
-          {!helpOpen && (
-            <label className="ml-auto flex min-w-[10rem] max-w-xs flex-1 items-center gap-2 text-xs text-slate-500 sm:flex-none">
-              <span className="shrink-0">Admin</span>
-              <input
-                type="password"
-                value={adminToken}
-                autoComplete="off"
-                onChange={(event) => handleTokenChange(event.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
-              />
-            </label>
-          )}
-        </div>
-      </div>
+          </>
+        }
+        toolbar={
+          <>
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving || loading || !dirty || !adminToken.trim()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <SaveIcon />
+              {saving ? "Opslaan…" : "Opslaan"}
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscard}
+              disabled={saving || loading || !dirty}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Verwerpen
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleReset()}
+              disabled={saving || loading || !adminToken.trim()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <ResetIcon />
+              Reset
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -460,51 +428,14 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
 
           {activeTable && (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                {activeTable.model_scope.length > 1 && (
-                  <>
-                    <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                      Bewerk
-                    </span>
-                    <div
-                      role="group"
-                      aria-label="Model bewerken"
-                      className="inline-flex flex-wrap gap-1"
-                    >
-                      {activeTable.model_scope.map((kind) => {
-                        const hasOverrides = tableHasModelOverrides(
-                          activeTable.rows,
-                          kind,
-                        );
-                        return (
-                          <button
-                            key={kind}
-                            type="button"
-                            onClick={() => setEditModel(kind)}
-                            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-medium ring-1 ${
-                              editModel === kind
-                                ? "bg-slate-800 text-white ring-slate-800"
-                                : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-                            }`}
-                          >
-                            {MODEL_LABELS[kind]}
-                            {hasOverrides && (
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  editModel === kind
-                                    ? "bg-emerald-300"
-                                    : "bg-emerald-500"
-                                }`}
-                                title="Eigen formules"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+              <ModelMultiSelect
+                models={activeTable.model_scope}
+                selected={editModels}
+                onChange={setEditModels}
+                hasOverrides={(kind) =>
+                  tableHasModelOverrides(activeTable.rows, kind)
+                }
+              />
               <div className="flex shrink-0 gap-1.5">
                 <button
                   type="button"
@@ -536,7 +467,7 @@ export function TableConfigPanel({ onDirtyChange }: TableConfigPanelProps) {
             disabled={saving || loading}
             editable={true}
             ratioSpecs={ratioSpecs}
-            activeModel={editModel}
+            activeModels={editModels}
           />
         )}
 

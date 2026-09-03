@@ -15,6 +15,8 @@ import {
   type ResultGroup,
 } from "../tables/views";
 import { EditableFinancialTable } from "./EditableFinancialTable";
+import { ConfigPanelHeader } from "./ConfigPanelHeader";
+import { ModelMultiSelect } from "./ModelMultiSelect";
 import { SubTabs } from "./SubTabs";
 
 interface TableViewPanelProps {
@@ -31,7 +33,8 @@ export function TableViewPanel({
   const [resultGroup, setResultGroup] = useState<ResultGroup>("full");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewModel, setViewModel] = useState<ModelKind>("full");
+  const [viewModels, setViewModels] = useState<ModelKind[]>(["full"]);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const activeTableId = tableIdForView(view, resultGroup);
   const activeTable = tables.find((table) => table.id === activeTableId) ?? null;
@@ -40,13 +43,11 @@ export function TableViewPanel({
     if (!activeTable) return;
     const inferred = inferModelFromSchema(analysisResult?.schema_format);
     if (inferred && activeTable.model_scope.includes(inferred)) {
-      setViewModel(inferred);
+      setViewModels([inferred]);
       return;
     }
-    if (!activeTable.model_scope.includes(viewModel)) {
-      setViewModel(activeTable.model_scope[0] ?? "full");
-    }
-  }, [activeTable, analysisResult?.schema_format, viewModel]);
+    setViewModels([...activeTable.model_scope]);
+  }, [activeTable?.id, analysisResult?.schema_format]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,109 +73,98 @@ export function TableViewPanel({
   }, []);
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div>
-        <h3 className="font-semibold text-slate-800">Tabellen</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Overzicht van de geconfigureerde financiële tabellen.
-          {analysisResult
-            ? " Celverwijzingen (mar: / ratio:) worden uit de huidige analyse ingevuld."
-            : " Analyseer een PDF om mar:- en ratio:-cellen in te vullen."}
-        </p>
-      </div>
+    <div className="min-w-0 space-y-3">
+      <ConfigPanelHeader
+        title="Tabellen"
+        summary="Overzicht van de geconfigureerde financiële tabellen."
+        helpOpen={helpOpen}
+        onHelpToggle={() => setHelpOpen((open) => !open)}
+        showInlineAdmin={false}
+        helpContent={
+          <ul className="space-y-1 text-xs leading-relaxed">
+            <li>
+              {analysisResult
+                ? "mar:- en ratio:-cellen worden uit de huidige analyse ingevuld."
+                : "Analyseer een PDF om mar:- en ratio:-cellen in te vullen."}
+            </li>
+            <li>
+              Selecteer één of meerdere modellen om waarden naast elkaar te
+              vergelijken.
+            </li>
+            <li>
+              <span className="font-semibold">i</span> rechts van de rijnaam —
+              toelichting.
+            </li>
+          </ul>
+        }
+      />
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </div>
       )}
 
-      <SubTabs items={VIEW_ITEMS} value={view} onChange={setView} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="space-y-3 border-b border-slate-100 p-3">
+          <SubTabs items={VIEW_ITEMS} value={view} onChange={setView} />
 
-      {view === "herwerkte_resultatenrekening" && (
-        <div
-          role="group"
-          aria-label="Modelgroep"
-          className="inline-flex overflow-hidden rounded-lg ring-1 ring-slate-200"
-        >
-          <button
-            type="button"
-            onClick={() => setResultGroup("full")}
-            className={`px-3 py-1.5 text-sm font-medium ${
-              resultGroup === "full"
-                ? "bg-slate-800 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {MODEL_LABELS.full}
-          </button>
-          <button
-            type="button"
-            onClick={() => setResultGroup("verkort_micro")}
-            className={`px-3 py-1.5 text-sm font-medium ${
-              resultGroup === "verkort_micro"
-                ? "bg-slate-800 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            Verkort + Micro
-          </button>
-        </div>
-      )}
-
-      {activeTable && (
-        <div className="min-w-0 space-y-3">
-          <div>
-            <h4 className="font-semibold text-slate-800">
-              {VIEW_ITEMS.find((item) => item.id === view)?.label}
-            </h4>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              <span>Gebruikt voor:</span>
-              {activeTable.model_scope.map((kind) => (
-                <span
-                  key={kind}
-                  className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700 ring-1 ring-slate-200"
-                >
-                  {MODEL_LABELS[kind]}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {activeTable.model_scope.length > 1 && (
+          {view === "herwerkte_resultatenrekening" && (
             <div
               role="group"
-              aria-label="Model weergave"
-              className="inline-flex flex-wrap gap-2"
+              aria-label="Resultatenrekening variant"
+              className="inline-flex overflow-hidden rounded-lg ring-1 ring-slate-200"
             >
-              {activeTable.model_scope.map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  onClick={() => setViewModel(kind)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ${
-                    viewModel === kind
-                      ? "bg-slate-800 text-white ring-slate-800"
-                      : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  {MODEL_LABELS[kind]}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setResultGroup("full")}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  resultGroup === "full"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {MODEL_LABELS.full}
+              </button>
+              <button
+                type="button"
+                onClick={() => setResultGroup("verkort_micro")}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  resultGroup === "verkort_micro"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Verkort + Micro
+              </button>
             </div>
           )}
 
+          {activeTable && (
+            <ModelMultiSelect
+              models={activeTable.model_scope}
+              selected={viewModels}
+              onChange={setViewModels}
+              label="Toon"
+              ariaLabel="Model weergave"
+            />
+          )}
+        </div>
+
+        {activeTable && (
           <EditableFinancialTable
             table={activeTable}
             editable={false}
             analysisResult={analysisResult}
             amountFormat={amountFormat}
-            activeModel={viewModel}
+            activeModels={viewModels}
           />
-        </div>
-      )}
+        )}
 
-      {loading && <p className="text-sm text-slate-600">Tabellen laden…</p>}
+        {loading && (
+          <p className="p-3 text-sm text-slate-600">Tabellen laden…</p>
+        )}
+      </div>
     </div>
   );
 }

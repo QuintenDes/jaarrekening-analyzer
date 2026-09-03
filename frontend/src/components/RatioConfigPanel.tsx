@@ -26,6 +26,7 @@ import {
   normalizeSpec,
 } from "../utils/ratiosYaml";
 import { SubTabs } from "./SubTabs";
+import { ConfigPanelHeader } from "./ConfigPanelHeader";
 import { FormulaTokens } from "./FormulaTokens";
 import {
   ArrowDownIcon,
@@ -91,6 +92,7 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [techOpen, setTechOpen] = useState<Set<number>>(new Set());
+  const [helpOpen, setHelpOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = useMemo(
@@ -358,117 +360,128 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="font-semibold text-slate-800">Ratio-configuratie</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Wijzigingen worden op de server bewaard en gelden voor iedereen.
-          Geen Docker-rebuild nodig.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
-            Admin-wachtwoord
-            <input
-              type="password"
-              value={adminToken}
-              autoComplete="off"
-              onChange={(event) => handleTokenChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-            />
-          </label>
-          <div className="text-sm text-slate-600">
-            <p>
-              Status:{" "}
-              <span className="font-medium text-slate-800">
-                {meta?.source === "saved" ? "opgeslagen" : "bundled"}
-              </span>
-            </p>
-            <p>Versie: {meta?.version ?? "—"}</p>
-            <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => handleSave()}
-          disabled={saving || loading || draft.length === 0}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          <SaveIcon />
-          {saving ? "Opslaan…" : "Opslaan"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void handleReset()}
-          disabled={saving || loading}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-        >
-          <ResetIcon />
-          Reset naar defaults
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            setDraft((current) => [
-              ...current,
-              blankRatioSpec(
-                inferRatioCategory("", activeCategory),
-                current.map((spec) => spec.id),
-              ),
-            ])
-          }
-          disabled={saving}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-        >
-          <PlusIcon />
-          Toevoegen
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            downloadRatiosYaml(exported, "ratios.yaml", {
-              dashboard_ratio_count: dashboardCount,
-              categories,
-              dashboard_key_ids: keyIds,
-            })
-          }
-          disabled={exported.length === 0}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
-        >
-          <ImportIcon />
-          Exporteer YAML
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowImport((value) => !value)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-        >
-          <DownloadIcon />
-          Importeer YAML
-        </button>
-        <label className="ml-auto flex h-9 items-center gap-2 text-sm text-slate-700">
-          <span className="whitespace-nowrap">Dashboard ratio’s</span>
-          <input
-            type="number"
-            min={1}
-            value={dashboardCount}
-            onChange={(event) => {
-              const n = Number(event.target.value);
-              setDashboardCount(Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1);
-            }}
-            className="h-9 w-16 rounded-lg border border-slate-200 px-2 text-center text-sm text-slate-900"
-            aria-label="Aantal ratio’s per categorie op het Dashboard"
-          />
-        </label>
-      </div>
+    <div className="min-w-0 space-y-3">
+      <ConfigPanelHeader
+        title="Ratio-configuratie"
+        summary="Bewerk ratio's voor alle gebruikers. Geen Docker-rebuild nodig."
+        meta={
+          meta
+            ? `· v${meta.version} · ${meta.source === "saved" ? "opgeslagen" : "standaard"}`
+            : undefined
+        }
+        helpOpen={helpOpen}
+        onHelpToggle={() => setHelpOpen((open) => !open)}
+        adminToken={adminToken}
+        onAdminTokenChange={handleTokenChange}
+        helpContent={
+          <>
+            <ul className="space-y-1 text-xs leading-relaxed">
+              <li>Teller / noemer — MAR-codes of expressies.</li>
+              <li>Factor en eenheid bepalen de weergave.</li>
+              <li>Import/export via YAML voor bulkwijzigingen.</li>
+            </ul>
+            <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+              <label className="block text-xs font-medium text-slate-600">
+                Admin-wachtwoord
+                <input
+                  type="password"
+                  value={adminToken}
+                  autoComplete="off"
+                  onChange={(event) => handleTokenChange(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                />
+              </label>
+              <div className="text-xs text-slate-500">
+                <p>Laatst bijgewerkt: {formatUpdatedAt(meta?.updated_at ?? null)}</p>
+              </div>
+            </div>
+          </>
+        }
+        toolbar={
+          <>
+            <button
+              type="button"
+              onClick={() => handleSave()}
+              disabled={saving || loading || draft.length === 0}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <SaveIcon />
+              {saving ? "Opslaan…" : "Opslaan"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleReset()}
+              disabled={saving || loading || !adminToken.trim()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <ResetIcon />
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setDraft((current) => [
+                  ...current,
+                  blankRatioSpec(
+                    inferRatioCategory("", activeCategory),
+                    current.map((spec) => spec.id),
+                  ),
+                ])
+              }
+              disabled={saving}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <PlusIcon />
+              Toevoegen
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                downloadRatiosYaml(exported, "ratios.yaml", {
+                  dashboard_ratio_count: dashboardCount,
+                  categories,
+                  dashboard_key_ids: keyIds,
+                })
+              }
+              disabled={exported.length === 0}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <ImportIcon />
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImport((value) => !value)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              <DownloadIcon />
+              Import
+            </button>
+            <label className="ml-auto flex h-8 items-center gap-2 text-xs text-slate-600">
+              <span className="whitespace-nowrap">Dashboard</span>
+              <input
+                type="number"
+                min={1}
+                value={dashboardCount}
+                onChange={(event) => {
+                  const n = Number(event.target.value);
+                  setDashboardCount(
+                    Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1,
+                  );
+                }}
+                className="h-8 w-14 rounded-lg border border-slate-200 px-2 text-center text-sm text-slate-900"
+                aria-label="Aantal ratio's per categorie op het Dashboard"
+              />
+            </label>
+          </>
+        }
+      />
 
       {showImport && (
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-sm text-slate-600">
-            Plak een <code className="font-mono text-xs">ratios.yaml</code>. De
-            import wordt eerst gevalideerd en daarna opgeslagen.
+            Plak een <code className="font-mono text-xs">ratios.yaml</code>.
+            Import wordt gevalideerd en daarna opgeslagen.
           </p>
           <textarea
             value={importText}
@@ -509,12 +522,12 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </div>
       )}
       {notice && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           {notice}
         </div>
       )}
@@ -522,66 +535,67 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
       {loading ? (
         <p className="text-sm text-slate-600">Configuratie laden…</p>
       ) : (
-        <div className="space-y-4">
-          <SubTabs
-            items={categories.map((category) => ({
-              id: category,
-              label: categoryLabel(category),
-            }))}
-            value={activeCategory}
-            onChange={(id) => {
-              setActiveCategory(id);
-              setExpanded(null);
-            }}
-            trailing={
-              <div className="ml-auto flex items-center gap-2 px-1 pb-2">
-                {addingCategory ? (
-                  <>
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(event) => setNewCategoryName(event.target.value)}
-                      placeholder="Naam categorie"
-                      className="w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addCategory();
-                        }
-                      }}
-                    />
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-3">
+            <SubTabs
+              items={categories.map((category) => ({
+                id: category,
+                label: categoryLabel(category),
+              }))}
+              value={activeCategory}
+              onChange={(id) => {
+                setActiveCategory(id);
+                setExpanded(null);
+              }}
+              trailing={
+                <div className="ml-auto flex items-center gap-2 px-1 pb-2">
+                  {addingCategory ? (
+                    <>
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(event) => setNewCategoryName(event.target.value)}
+                        placeholder="Naam categorie"
+                        className="w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addCategory();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={addCategory}
+                        className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                      >
+                        Opslaan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingCategory(false);
+                          setNewCategoryName("");
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-800"
+                      >
+                        Annuleren
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
-                      onClick={addCategory}
-                      className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                      onClick={() => setAddingCategory(true)}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
                     >
-                      Opslaan
+                      Categorie +
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingCategory(false);
-                        setNewCategoryName("");
-                      }}
-                      className="text-xs text-slate-500 hover:text-slate-800"
-                    >
-                      Annuleren
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAddingCategory(true)}
-                    className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    Categorie toevoegen
-                  </button>
-                )}
-              </div>
-            }
-          />
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="max-h-[70vh] overflow-auto">
+                  )}
+                </div>
+              }
+            />
+          </div>
+          <div className="max-h-[70vh] overflow-auto">
               {categoryRows.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-slate-600">
                   Nog geen ratio’s in {categoryLabel(activeCategory)}. Gebruik
@@ -776,42 +790,39 @@ export function RatioConfigPanel({ onLiveConfigApplied }: RatioConfigPanelProps)
                   </tbody>
                 </table>
               )}
-            </div>
           </div>
         </div>
       )}
 
       {history.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h4 className="font-semibold text-slate-800">Geschiedenis</h4>
-          <p className="mt-1 text-sm text-slate-600">
-            Een herstel maakt een nieuwe versie; de huidige configuratie wordt
-            eerst bewaard.
-          </p>
-          <ul className="mt-3 space-y-2">
+        <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+            Geschiedenis ({history.length})
+          </summary>
+          <ul className="space-y-2 border-t border-slate-100 px-4 py-3">
             {history.slice(0, 20).map((item) => (
               <li
                 key={item.version}
                 className="flex flex-wrap items-center justify-between gap-2 text-sm"
               >
                 <span className="text-slate-700">
-                  Versie {item.version}
+                  v{item.version}
                   <span className="ml-2 text-slate-500">
                     {formatUpdatedAt(item.updated_at)}
                   </span>
                 </span>
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || !adminToken.trim()}
                   onClick={() => void handleRestore(item.version)}
-                  className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg bg-white px-2.5 py-1 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Herstellen
                 </button>
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
     </div>
   );
